@@ -22,6 +22,9 @@ ngx_uint_t         ngx_max_module;
 static ngx_uint_t  ngx_modules_n;
 
 
+/*  循环ngx_modules数组，初始化所有模块的index和name
+ *  ngx_modules_n为模块的总个数
+ */
 ngx_int_t
 ngx_preinit_modules(void)
 {
@@ -62,6 +65,10 @@ ngx_cycle_modules(ngx_cycle_t *cycle)
 }
 
 
+/*  调用所有模块的init_module()
+ *
+ *
+ */
 ngx_int_t
 ngx_init_modules(ngx_cycle_t *cycle)
 {

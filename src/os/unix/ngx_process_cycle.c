@@ -69,6 +69,9 @@ static ngx_log_t        ngx_exit_log;
 static ngx_open_file_t  ngx_exit_log_file;
 
 
+/*  主进程循环
+ *
+ */
 void
 ngx_master_process_cycle(ngx_cycle_t *cycle)
 {
@@ -84,6 +87,11 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
     ngx_listening_t   *ls;
     ngx_core_conf_t   *ccf;
 
+
+    /*  修改进程的信号掩码，被屏蔽的信号不能被进程接收，由操作系统保留为挂起信号
+     *  SIG_BLOCK表示与进程当前掩码取并集
+     *
+     */
     sigemptyset(&set);
     sigaddset(&set, SIGCHLD);
     sigaddset(&set, SIGALRM);
@@ -125,8 +133,15 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
     ngx_setproctitle(title);
 
 
+    /*  取得ngx_core_module模块的配置项结构体，从中或者工作进程数量worker_processes
+     *
+     */
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
+
+    /*  启动工作者进程
+     *
+     */
     ngx_start_worker_processes(cycle, ccf->worker_processes,
                                NGX_PROCESS_RESPAWN);
     ngx_start_cache_manager_processes(cycle, 0);
@@ -136,6 +151,10 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
     sigio = 0;
     live = 1;
 
+
+    /*  master进程开始无限循环，等待用户或者子进程发送信号
+     *  设置标识位，执行对应操作
+     */
     for ( ;; ) {
         if (delay) {
             if (ngx_sigalrm) {
@@ -160,13 +179,26 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
 
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "sigsuspend");
 
+
+        /*  修改进程信号掩码为传入的掩码，此时set为空，系统发送所有挂起信号给进程
+         *  信号处理完成之后，将信号掩码还原为调用之前的状态
+         *  这样使得进程可以自己选择合适的时机处理信号
+         */
         sigsuspend(&set);
 
+        /*  更新6个全局时间变量
+         *
+         */
         ngx_time_update();
 
         ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                        "wake up, sigio %i", sigio);
 
+
+        /*  master进程收到SIGCHLD信号后设置ngx_reap标识位，表示需要再次启动worker进程
+         *
+         *
+         */
         if (ngx_reap) {
             ngx_reap = 0;
             ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "reap children");
@@ -341,6 +373,9 @@ ngx_single_process_cycle(ngx_cycle_t *cycle)
 }
 
 
+/*  启动工作者进程
+ *
+ */
 static void
 ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
 {
@@ -355,6 +390,11 @@ ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
 
     for (i = 0; i < n; i++) {
 
+
+        /*  根据配置参数，生成对应个数的工作进程，第2个参数为工作进程主循环的方法指针
+         *
+         *
+         */
         ngx_spawn_process(cycle, ngx_worker_process_cycle,
                           (void *) (intptr_t) i, "worker process", type);
 
@@ -723,6 +763,9 @@ ngx_master_process_exit(ngx_cycle_t *cycle)
 }
 
 
+/*  worker进程主循环
+ *  data为循环生成worker进程时的序号
+ */
 static void
 ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 {

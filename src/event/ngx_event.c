@@ -190,6 +190,10 @@ ngx_module_t  ngx_event_core_module = {
 };
 
 
+/*  worker进程处理连接和定时器事件
+ *
+ *
+ */
 void
 ngx_process_events_and_timers(ngx_cycle_t *cycle)
 {
@@ -260,6 +264,10 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 }
 
 
+/*  封装的简单方法用于在事件驱动模块中添加或者移除事件，
+ *  而不会直接调用驱动模块的add和del方法，造成强耦合
+ *
+ */
 ngx_int_t
 ngx_handle_read_event(ngx_event_t *rev, ngx_uint_t flags)
 {

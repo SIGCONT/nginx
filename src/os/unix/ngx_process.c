@@ -36,6 +36,10 @@ ngx_int_t        ngx_last_process;
 ngx_process_t    ngx_processes[NGX_MAX_PROCESSES];
 
 
+/*  全局signals数组，定义了程序需要处理的所有信号值，对应的命令参数以及相应的信号处理函数
+ *  注册之后会继承给工作进程
+ *
+ */
 ngx_signal_t  signals[] = {
     { ngx_signal_value(NGX_RECONFIGURE_SIGNAL),
       "SIG" ngx_value(NGX_RECONFIGURE_SIGNAL),
@@ -77,6 +81,11 @@ ngx_signal_t  signals[] = {
 
     { SIGSYS, "SIGSYS, SIG_IGN", "", SIG_IGN },
 
+
+    /*  往一个读端关闭的管道或者socket连接中写数据会引发SIGPIPE信号
+     *  进程接收到此信号的默认行为是结束进程
+     *  需要在程序中捕获或者忽略，当前设置为忽略
+     */
     { SIGPIPE, "SIGPIPE, SIG_IGN", "", SIG_IGN },
 
     { 0, NULL, "", NULL }
@@ -610,6 +619,11 @@ ngx_debug_point(void)
 }
 
 
+
+/*  根据命令行参数，给nginx主进程发送信号值，以执行相应的操作如nginx -s stop
+ *  成功时返回0，失败时返回1，直接返回给main()
+ *  int kill(pid_t pid, int sig); 成功时返回0，失败时返回-1并设置errno
+ */
 ngx_int_t
 ngx_os_signal_process(ngx_cycle_t *cycle, char *name, ngx_pid_t pid)
 {
@@ -618,7 +632,7 @@ ngx_os_signal_process(ngx_cycle_t *cycle, char *name, ngx_pid_t pid)
     for (sig = signals; sig->signo != 0; sig++) {
         if (ngx_strcmp(name, sig->name) == 0) {
             if (kill(pid, sig->signo) != -1) {
-                return 0;
+                return 0;   //操作成功之后返回0
             }
 
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
@@ -626,5 +640,5 @@ ngx_os_signal_process(ngx_cycle_t *cycle, char *name, ngx_pid_t pid)
         }
     }
 
-    return 1;
+    return 1;   //循环信号数组之后也没有找到对应的信号命令时返回1
 }

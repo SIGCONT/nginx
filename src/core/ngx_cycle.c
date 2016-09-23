@@ -33,6 +33,11 @@ static ngx_connection_t  dumb;
 /* STUB */
 
 
+
+/*  初始化全局ngx_cycle_t结构体，读取并配置所有核心模块的配置项
+ *
+ *
+ */
 ngx_cycle_t *
 ngx_init_cycle(ngx_cycle_t *old_cycle)
 {
@@ -185,6 +190,11 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     ngx_queue_init(&cycle->reusable_connections_queue);
 
 
+
+    /*  初始化存储所有模块的配置项的指针数组 void ****conf_ctx
+     *
+     *
+     */
     cycle->conf_ctx = ngx_pcalloc(pool, ngx_max_module * sizeof(void *));
     if (cycle->conf_ctx == NULL) {
         ngx_destroy_pool(pool);
@@ -218,6 +228,10 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     }
 
 
+    /*  为所有核心模块分配存储配置项的空间(调用create_conf)
+     *
+     *
+     */
     for (i = 0; cycle->modules[i]; i++) {
         if (cycle->modules[i]->type != NGX_CORE_MODULE) {
             continue;
@@ -282,6 +296,11 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
                        cycle->conf_file.data);
     }
 
+
+    /*  初始化所有核心模块的配置项(调用init_conf)
+     *
+     *
+     */
     for (i = 0; cycle->modules[i]; i++) {
         if (cycle->modules[i]->type != NGX_CORE_MODULE) {
             continue;
@@ -606,6 +625,11 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         }
     }
 
+
+    /*  对于cycle中的listening数组，初始化并开始监听对应的文件描述符
+     *  之后客户端可以开始发送请求
+     *
+     */
     if (ngx_open_listening_sockets(cycle) != NGX_OK) {
         goto failed;
     }
@@ -623,6 +647,11 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     pool->log = cycle->log;
 
+
+    /*  调用所有模块的init()方法
+     *
+     *
+     */
     if (ngx_init_modules(cycle) != NGX_OK) {
         /* fatal */
         exit(1);
@@ -1002,6 +1031,10 @@ ngx_delete_pidfile(ngx_cycle_t *cycle)
 }
 
 
+/*  根据命令行参数操作nginx，比如 nginx -s stop
+ *  最终通过kill给nginx主进程发送对应信号值
+ *
+ */
 ngx_int_t
 ngx_signal_process(ngx_cycle_t *cycle, char *sig)
 {
