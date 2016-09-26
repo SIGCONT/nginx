@@ -158,6 +158,10 @@ static ngx_str_t      epoll_name = ngx_string("epoll");
 
 static ngx_command_t  ngx_epoll_commands[] = {
 
+
+    /*  epoll_wait()时最多可以返回的事件数，也即第三个参数
+     *  也会预分配同样数量的epoll_event数组用于存储事件
+     */
     { ngx_string("epoll_events"),
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
@@ -319,6 +323,13 @@ failed:
 #endif
 
 
+
+/*  创建epoll对象
+ *  创建event_list数组，用于接收发生的事件
+ *  ep: epoll文件描述符
+ *  event_list:存储发生事件的epoll_event数组
+ *  nevents:可返回的最大事件数
+ */
 static ngx_int_t
 ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
 {
@@ -584,8 +595,15 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     ngx_connection_t    *c;
     struct epoll_event   ee;
 
+
+    /*  事件的data中存放着ngx_connection_t指针
+     *
+     */
     c = ev->data;
 
+    /*  需要监听的事件类型
+     *
+     */
     events = (uint32_t) event;
 
     if (event == NGX_READ_EVENT) {
@@ -897,6 +915,10 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
 
             rev->ready = 1;
 
+            /*  读事件需要延后处理，则添加到accept事件队列或者是普通事件队列
+             *  不需要延后处理就立刻调用回调函数
+             *
+             */
             if (flags & NGX_POST_EVENTS) {
                 queue = rev->accept ? &ngx_posted_accept_events
                                     : &ngx_posted_events;
@@ -929,6 +951,9 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
             wev->complete = 1;
 #endif
 
+            /*  写事件需要延后处理，则添加到普通事件队列
+             *  不需要延后处理，立刻调用回调函数
+             */
             if (flags & NGX_POST_EVENTS) {
                 ngx_post_event(wev, &ngx_posted_events);
 

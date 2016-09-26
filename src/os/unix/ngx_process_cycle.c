@@ -402,6 +402,11 @@ ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
         ch.slot = ngx_process_slot;
         ch.fd = ngx_processes[ngx_process_slot].channel[0];
 
+
+        /*  将新创建的worker进程信息保存在ch中，通过channel[0]发送给worker进程
+         *
+         *
+         */
         ngx_pass_open_channel(cycle, &ch);
     }
 }
@@ -940,6 +945,11 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
         ls[i].previous = NULL;
     }
 
+
+    /*  循环所有模块，调用init_process()
+     *
+     *
+     */
     for (i = 0; cycle->modules[i]; i++) {
         if (cycle->modules[i]->init_process) {
             if (cycle->modules[i]->init_process(cycle) == NGX_ERROR) {
@@ -963,12 +973,19 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
             continue;
         }
 
+
+        /*  关闭多余的socket描述符
+         *
+         */
         if (close(ngx_processes[n].channel[1]) == -1) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                           "close() channel failed");
         }
     }
 
+    /*  关闭master进程的socket描述符
+     *
+     */
     if (close(ngx_processes[ngx_process_slot].channel[0]) == -1) {
         ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                       "close() channel failed");
@@ -978,6 +995,9 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
     ngx_last_process = 0;
 #endif
 
+    /*  把当前socket描述符的读事件添加到监听中
+     *
+     */
     if (ngx_add_channel_event(cycle, ngx_channel, NGX_READ_EVENT,
                               ngx_channel_handler)
         == NGX_ERROR)
@@ -1108,6 +1128,10 @@ ngx_channel_handler(ngx_event_t *ev)
             ngx_reopen = 1;
             break;
 
+
+        /*  将master进程发送的新创建worker进程的信息保存到ngx_processes全局数组中
+         *
+         */
         case NGX_CMD_OPEN_CHANNEL:
 
             ngx_log_debug3(NGX_LOG_DEBUG_CORE, ev->log, 0,

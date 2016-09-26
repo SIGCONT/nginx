@@ -257,6 +257,10 @@ main(int argc, char *const *argv)
         return 1;
     }
 
+
+    /*  设置配置文件的路径信息
+     *
+     */
     if (ngx_process_options(&init_cycle) != NGX_OK) {
         return 1;
     }

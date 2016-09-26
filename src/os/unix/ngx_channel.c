@@ -195,6 +195,9 @@ ngx_read_channel(ngx_socket_t s, ngx_channel_t *ch, size_t size, ngx_log_t *log)
 }
 
 
+/*  将与master进程通信的channel[1]描述符上的读事件添加到监听中
+ *
+ */
 ngx_int_t
 ngx_add_channel_event(ngx_cycle_t *cycle, ngx_fd_t fd, ngx_int_t event,
     ngx_event_handler_pt handler)

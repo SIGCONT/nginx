@@ -30,6 +30,11 @@ int              ngx_argc;
 char           **ngx_argv;
 char           **ngx_os_argv;
 
+
+/*  全局ngx_processes数组
+ *
+ *
+ */
 ngx_int_t        ngx_process_slot;
 ngx_socket_t     ngx_channel;
 ngx_int_t        ngx_last_process;
@@ -100,10 +105,19 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
     ngx_pid_t  pid;
     ngx_int_t  s;
 
+
+    /*  第一次循环生成worker进程时，respwan值为NGX_PROCESS_RESPAWN(-3)
+     *
+     *
+     */
     if (respawn >= 0) {
         s = respawn;
 
     } else {
+
+        /*  ngx_processes全局数组中找到第一个可用元素的下标
+         *
+         */
         for (s = 0; s < ngx_last_process; s++) {
             if (ngx_processes[s].pid == -1) {
                 break;
@@ -123,6 +137,11 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
 
         /* Solaris 9 still has no AF_LOCAL */
 
+
+        /*  socketpair()创建一对socket描述符，供master进程和worker进程通信
+         *  ngx_process_t中：ngx_socket_t channel[2]
+         *  其中channel[0]给master进程使用，channel[1]给worker进程使用
+         */
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, ngx_processes[s].channel) == -1)
         {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
@@ -182,6 +201,10 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
             return NGX_INVALID_PID;
         }
 
+
+        /*  保存到全局变量以便worker进程使用
+         *
+         */
         ngx_channel = ngx_processes[s].channel[1];
 
     } else {
@@ -213,6 +236,11 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
 
     ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "start %s %P", name, pid);
 
+
+    /*  将新创建的worker进程相关信息保存到ngx_processes数组中的对应位置
+     *
+     *
+     */
     ngx_processes[s].pid = pid;
     ngx_processes[s].exited = 0;
 
@@ -405,6 +433,11 @@ ngx_signal_handler(int signo)
 
         break;
 
+
+    /*  worker进程的信号处理流程
+     *  接收到对应的信号时设置标识位
+     *
+     */
     case NGX_PROCESS_WORKER:
     case NGX_PROCESS_HELPER:
         switch (signo) {

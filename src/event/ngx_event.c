@@ -98,6 +98,9 @@ static ngx_core_module_t  ngx_events_module_ctx = {
 };
 
 
+/*  事件模块相关的核心模块
+ *
+ */
 ngx_module_t  ngx_events_module = {
     NGX_MODULE_V1,
     &ngx_events_module_ctx,                /* module context */
@@ -174,6 +177,10 @@ ngx_event_module_t  ngx_event_core_module_ctx = {
 };
 
 
+/*  第一个事件类型的模块
+ *
+ *
+ */
 ngx_module_t  ngx_event_core_module = {
     NGX_MODULE_V1,
     &ngx_event_core_module_ctx,            /* module context */
@@ -449,6 +456,10 @@ ngx_event_module_init(ngx_cycle_t *cycle)
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
+
+    /*  全局变量表示时间精度ngx_timer_resolution(ms)
+     *
+     */
     ngx_timer_resolution = ccf->timer_resolution;
 
 #if !(NGX_WIN32)
@@ -909,6 +920,11 @@ ngx_send_lowat(ngx_connection_t *c, size_t lowat)
 }
 
 
+
+/*  负责管理所有的event模块
+ *  包括所有event模块 序号的初始化，配置项结构体指针数组空间的分配
+ *  调用所有event模块的配置项创建，配置项解析和最后的初始化
+ */
 static char *
 ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -922,8 +938,10 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return "is duplicate";
     }
 
-    /* count the number of the event modules and set up their indices */
 
+    /*  初始化所有event模块的ctx_index并统计event模块的总个数
+     *
+     */
     ngx_event_max_module = ngx_count_modules(cf->cycle, NGX_EVENT_MODULE);
 
     ctx = ngx_pcalloc(cf->pool, sizeof(void *));
@@ -931,6 +949,10 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
+
+    /*  为所有event模块的配置项分配一个指针数组
+     *
+     */
     *ctx = ngx_pcalloc(cf->pool, ngx_event_max_module * sizeof(void *));
     if (*ctx == NULL) {
         return NGX_CONF_ERROR;
@@ -938,6 +960,10 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     *(void **) conf = ctx;
 
+
+    /*  调用event模块的create_conf()创建配置项结构体
+     *  将结构体的地址保存到指针数组中对应的位置，以ctx_index为索引
+     */
     for (i = 0; cf->cycle->modules[i]; i++) {
         if (cf->cycle->modules[i]->type != NGX_EVENT_MODULE) {
             continue;
@@ -959,6 +985,11 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     cf->module_type = NGX_EVENT_MODULE;
     cf->cmd_type = NGX_EVENT_CONF;
 
+
+    /*  开始解析配置块中内容
+     *  所有event模块可以将自己感兴趣的配置项的值保存到配置项结构体中
+     *
+     */
     rv = ngx_conf_parse(cf, NULL);
 
     *cf = pcf;
@@ -967,6 +998,11 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return rv;
     }
 
+
+    /*  调用event模块的init_conf()初始化配置项结构体
+     *
+     *
+     */
     for (i = 0; cf->cycle->modules[i]; i++) {
         if (cf->cycle->modules[i]->type != NGX_EVENT_MODULE) {
             continue;
