@@ -28,13 +28,19 @@ typedef struct {
 
 
 struct ngx_event_s {
+    /*
+     *  事件相关的对象，通常data指向ngx_connection_t连接对象
+     */
     void            *data;
 
     unsigned         write:1;
 
     unsigned         accept:1;
 
-    /* used to detect the stale events in kqueue and epoll */
+    /*
+     *  用于区分当前事件是否是过期的
+     *  开始处理一批事件时，处理前面的事件可能会关闭一些连接，因此会影响还未处理到的后面的事件
+     */
     unsigned         instance:1;
 
     /*
@@ -107,6 +113,9 @@ struct ngx_event_s {
     unsigned         available:1;
 #endif
 
+    /*
+     *  事件发生时的回调方法，每个事件消费模块会重新实现它
+     */
     ngx_event_handler_pt  handler;
 
 

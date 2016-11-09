@@ -629,6 +629,9 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
     ecf = ngx_event_get_conf(cycle->conf_ctx, ngx_event_core_module);
 
+    /*  当打开了accept_mutex负载均衡锁，同时使用了master模式且worker进程数大于1时，
+     *  才正式确定进程使用负载均衡锁
+     */
     if (ccf->master && ccf->worker_processes > 1 && ecf->accept_mutex) {
         ngx_use_accept_mutex = 1;
         ngx_accept_mutex_held = 0;
@@ -638,26 +641,19 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         ngx_use_accept_mutex = 0;
     }
 
-#if (NGX_WIN32)
-
-    /*
-     * disable accept mutex on win32 as it may cause deadlock if
-     * grabbed by a process which can't accept connections
-     */
-
-    ngx_use_accept_mutex = 0;
-
-#endif
-
     ngx_queue_init(&ngx_posted_accept_events);
     ngx_queue_init(&ngx_posted_events);
 
+    /*
+     *  初始化红黑树实现的定时器
+     */
     if (ngx_event_timer_init(cycle->log) == NGX_ERROR) {
         return NGX_ERROR;
     }
 
 
-    /*  找到配置文件中所指定启用的事件驱动模块
+    /*  
+     *  找到配置文件中所指定启用的事件驱动模块
      *  调用事件驱动结构体中的init方法
      */
     for (m = 0; cycle->modules[m]; m++) {
@@ -672,7 +668,6 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         module = cycle->modules[m]->ctx;
 
         if (module->actions.init(cycle, ngx_timer_resolution) != NGX_OK) {
-            /* fatal */
             exit(2);
         }
 
@@ -735,8 +730,8 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #endif
 
-    /*  为连接池分配空间
-     *
+    /*  
+     *  为连接池分配空间
      */
     cycle->connections = ngx_alloc(sizeof(ngx_connection_t) * cycle->connection_n, cycle->log);
     if (cycle->connections == NULL) {
@@ -745,8 +740,8 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
     c = cycle->connections;
 
-    /*  为读事件池分配空间
-     *
+    /*  
+     *  为读事件池分配空间
      */
     cycle->read_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n, cycle->log);
     if (cycle->read_events == NULL) {
@@ -760,8 +755,8 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     }
 
 
-    /*  为写事件池分配空间
-     *
+    /*  
+     *  为写事件池分配空间
      */
     cycle->write_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n, cycle->log);
     if (cycle->write_events == NULL) {
@@ -776,6 +771,9 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     i = cycle->connection_n;
     next = NULL;
 
+    /*
+     *  根据数组序号，把相应的读/写事件关联到连接对象
+     */
     do {
         i--;
 
@@ -790,8 +788,10 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     cycle->free_connections = next;
     cycle->free_connection_n = cycle->connection_n;
 
-    /* for each listening socket */
-
+    /*
+     *  遍历监听对象数组，为每一个监听对象分配连接，并设置读事件回调方法为ngx_event_accept
+     *  并将读事件添加到事件驱动模块中
+     */
     ls = cycle->listening.elts;
     for (i = 0; i < cycle->listening.nelts; i++) {
 
@@ -963,7 +963,8 @@ ngx_send_lowat(ngx_connection_t *c, size_t lowat)
 
 
 
-/*  负责管理所有的event模块
+/*  
+ *  负责管理所有的event模块
  *  包括所有event模块 序号的初始化，配置项结构体指针数组空间的分配
  *  调用所有event模块的配置项创建，配置项解析和最后的初始化
  */
@@ -981,8 +982,8 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
 
-    /*  初始化所有event模块的ctx_index并统计event模块的总个数
-     *
+    /*  
+     *  初始化所有事件模块的ctx_index并统计event模块的总个数
      */
     ngx_event_max_module = ngx_count_modules(cf->cycle, NGX_EVENT_MODULE);
 
@@ -992,8 +993,8 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
 
-    /*  为所有event模块的配置项分配一个指针数组
-     *
+    /*  
+     *  为所有事件模块的配置项分配一个指针数组
      */
     *ctx = ngx_pcalloc(cf->pool, ngx_event_max_module * sizeof(void *));
     if (*ctx == NULL) {
@@ -1003,7 +1004,8 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     *(void **) conf = ctx;
 
 
-    /*  调用event模块的create_conf()创建配置项结构体
+    /*  
+     *  调用所有事件模块的create_conf()创建配置项结构体
      *  将结构体的地址保存到指针数组中对应的位置，以ctx_index为索引
      */
     for (i = 0; cf->cycle->modules[i]; i++) {
@@ -1027,9 +1029,9 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     cf->cmd_type = NGX_EVENT_CONF;
 
 
-    /*  开始解析配置块中内容
-     *  所有event模块可以将自己感兴趣的配置项的值保存到配置项结构体中
-     *
+    /*  
+     *  开始解析配置块中内容
+     *  所有事件模块可以将自己感兴趣的配置项的值保存到配置项结构体中
      */
     rv = ngx_conf_parse(cf, NULL);
 
@@ -1040,9 +1042,8 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
 
-    /*  调用event模块的init_conf()初始化配置项结构体
-     *
-     *
+    /*  
+     *  调用事件模块的init_conf()初始化配置项结构体
      */
     for (i = 0; cf->cycle->modules[i]; i++) {
         if (cf->cycle->modules[i]->type != NGX_EVENT_MODULE) {

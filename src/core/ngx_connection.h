@@ -123,6 +123,10 @@ typedef enum {
 
 
 struct ngx_connection_s {
+
+    /*
+     *  连接未使用时作为连接池中空闲连接链表中的next指针
+     */
     void               *data;
     ngx_event_t        *read;
     ngx_event_t        *write;
