@@ -23,8 +23,13 @@
 static ngx_uint_t        slot;
 static ngx_atomic_t      ngx_time_lock;
 
+//  70年到当前时间的毫秒数
 volatile ngx_msec_t      ngx_current_msec;
+//  ngx_time_t结构体形式的当前时间
 volatile ngx_time_t     *ngx_cached_time;
+/*
+ *  字符串形式的当前时间格式
+ */
 volatile ngx_str_t       ngx_cached_err_log_time;
 volatile ngx_str_t       ngx_cached_http_time;
 volatile ngx_str_t       ngx_cached_http_log_time;
@@ -59,9 +64,15 @@ static char  *week[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 static char  *months[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
+/*
+ *  初始化当前进程中缓存的时间变量，同时第一次根据gettimeofday调用刷新缓存时间
+ */
 void
 ngx_time_init(void)
 {
+    /*
+     *  这里的sizeof获取字符串常量的长度，包括结尾的\0
+     */
     ngx_cached_err_log_time.len = sizeof("1970/09/28 12:00:00") - 1;
     ngx_cached_http_time.len = sizeof("Mon, 28 Sep 1970 06:00:00 GMT") - 1;
     ngx_cached_http_log_time.len = sizeof("28/Sep/1970:12:00:00 +0600") - 1;
@@ -74,6 +85,9 @@ ngx_time_init(void)
 }
 
 
+/*
+ *  使用gettimeofday调用以系统时间更新缓存的时间，更新全局时间变量
+ */
 void
 ngx_time_update(void)
 {

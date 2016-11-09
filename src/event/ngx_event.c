@@ -77,7 +77,9 @@ ngx_atomic_t  *ngx_stat_waiting = &ngx_stat_waiting0;
 #endif
 
 
-
+/*  此核心模块感兴趣的配置项
+ *  在回调方法中负责所有事件类模块配置项的分配、解析
+ */
 static ngx_command_t  ngx_events_commands[] = {
 
     { ngx_string("events"),
@@ -98,7 +100,7 @@ static ngx_core_module_t  ngx_events_module_ctx = {
 };
 
 
-/*  事件模块相关的核心模块
+/*  核心模块，负责管理所有的事件类模块
  *
  */
 ngx_module_t  ngx_events_module = {
@@ -122,6 +124,10 @@ static ngx_str_t  event_core_name = ngx_string("event_core");
 
 static ngx_command_t  ngx_event_core_commands[] = {
 
+
+    /*  连接池的大小，每个worker子进程中支持的TCP最大连接数
+     *
+     */
     { ngx_string("worker_connections"),
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_event_connections,
@@ -129,6 +135,9 @@ static ngx_command_t  ngx_event_core_commands[] = {
       0,
       NULL },
 
+    /*  确定选择哪一个事件模块作为事件驱动机制
+     *
+     */
     { ngx_string("use"),
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_event_use,
@@ -168,16 +177,27 @@ static ngx_command_t  ngx_event_core_commands[] = {
 };
 
 
+
+/*  事件类模块的通用接口
+ *  ngx_str_t *name; 事件类模块名称
+ *  void *(*create_conf)(ngx_cycle_t *cycle); 回调方法，解析配置项前，创建配置项结构体
+ *  char *(*init_conf)(ngx_cycle_t *cycle, void *conf); 回调方法，解析配置项后处理配置项
+ *  ngx_event_actions_t actions;
+ */
 ngx_event_module_t  ngx_event_core_module_ctx = {
     &event_core_name,
     ngx_event_core_create_conf,            /* create configuration */
     ngx_event_core_init_conf,              /* init configuration */
 
+
+    /*  事件驱动机制需要实现的10个抽象方法
+     *  有9个事件驱动模块来具体实现
+     */
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
 
-/*  第一个事件类型的模块
+/*  事件类模块中的第一个
  *
  *
  */
@@ -197,9 +217,8 @@ ngx_module_t  ngx_event_core_module = {
 };
 
 
-/*  worker进程处理连接和定时器事件
- *
- *
+/*  
+ *  worker进程处理网络事件和定时器事件
  */
 void
 ngx_process_events_and_timers(ngx_cycle_t *cycle)
@@ -212,18 +231,11 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
         flags = 0;
 
     } else {
+        /*
+         *  获取最近一个将要触发的事件距离现在多少毫秒
+         */
         timer = ngx_event_find_timer();
         flags = NGX_UPDATE_TIME;
-
-#if (NGX_WIN32)
-
-        /* handle signals from master in case of network inactivity */
-
-        if (timer == NGX_TIMER_INFINITE || timer > 500) {
-            timer = 500;
-        }
-
-#endif
     }
 
     if (ngx_use_accept_mutex) {
@@ -239,8 +251,7 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
                 flags |= NGX_POST_EVENTS;
 
             } else {
-                if (timer == NGX_TIMER_INFINITE
-                    || timer > ngx_accept_mutex_delay)
+                if (timer == NGX_TIMER_INFINITE || timer > ngx_accept_mutex_delay)
                 {
                     timer = ngx_accept_mutex_delay;
                 }
@@ -250,13 +261,18 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 
     delta = ngx_current_msec;
 
+    /*
+     *  调用ngx_event_actions.process_events处理网络事件
+     *  遍历返回的所有事件，或直接调用回调函数，或添加到事件队列等待处理
+     */
     (void) ngx_process_events(cycle, timer, flags);
 
     delta = ngx_current_msec - delta;
 
-    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
-                   "timer delta: %M", delta);
-
+    /*
+     *  处理accept队列中的建立TCP连接事件
+     *  处理完成后释放ngx_accept_mutex
+     */
     ngx_event_process_posted(cycle, &ngx_posted_accept_events);
 
     if (ngx_accept_mutex_held) {
@@ -267,13 +283,17 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
         ngx_event_expire_timers();
     }
 
+    /*
+     *  处理普通网络事件
+     */
     ngx_event_process_posted(cycle, &ngx_posted_events);
 }
 
 
 /*  封装的简单方法用于在事件驱动模块中添加或者移除事件，
- *  而不会直接调用驱动模块的add和del方法，造成强耦合
- *
+ *  而不会直接调用事件驱动模块的add和del方法，造成强耦合
+ *  rev:要操作的事件
+ *  flags:事件的驱动方式，一般可以忽略
  */
 ngx_int_t
 ngx_handle_read_event(ngx_event_t *rev, ngx_uint_t flags)
@@ -343,6 +363,11 @@ ngx_handle_read_event(ngx_event_t *rev, ngx_uint_t flags)
 }
 
 
+
+/*  wev:要操作的事件
+ *  lowat:只有当连接对应的套接字缓冲区中必须有lowat大小的可用空间时，事件收集器才能处理这个可写事件
+ *  为0时不考虑可写缓冲区的大小
+ */
 ngx_int_t
 ngx_handle_write_event(ngx_event_t *wev, size_t lowat)
 {
@@ -435,6 +460,9 @@ ngx_event_init_conf(ngx_cycle_t *cycle, void *conf)
 }
 
 
+/*  在fork()出子进程之前调用
+ *
+ */
 static ngx_int_t
 ngx_event_module_init(ngx_cycle_t *cycle)
 {
@@ -584,6 +612,9 @@ ngx_timer_signal_handler(int signo)
 #endif
 
 
+/*  在fork()出子进程之后，每个worker子进程在工作循环之前调用
+ *
+ */
 static ngx_int_t
 ngx_event_process_init(ngx_cycle_t *cycle)
 {
@@ -625,6 +656,10 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
 
+
+    /*  找到配置文件中所指定启用的事件驱动模块
+     *  调用事件驱动结构体中的init方法
+     */
     for (m = 0; cycle->modules[m]; m++) {
         if (cycle->modules[m]->type != NGX_EVENT_MODULE) {
             continue;
@@ -700,16 +735,20 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #endif
 
-    cycle->connections =
-        ngx_alloc(sizeof(ngx_connection_t) * cycle->connection_n, cycle->log);
+    /*  为连接池分配空间
+     *
+     */
+    cycle->connections = ngx_alloc(sizeof(ngx_connection_t) * cycle->connection_n, cycle->log);
     if (cycle->connections == NULL) {
         return NGX_ERROR;
     }
 
     c = cycle->connections;
 
-    cycle->read_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n,
-                                   cycle->log);
+    /*  为读事件池分配空间
+     *
+     */
+    cycle->read_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n, cycle->log);
     if (cycle->read_events == NULL) {
         return NGX_ERROR;
     }
@@ -720,8 +759,11 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         rev[i].instance = 1;
     }
 
-    cycle->write_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n,
-                                    cycle->log);
+
+    /*  为写事件池分配空间
+     *
+     */
+    cycle->write_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n, cycle->log);
     if (cycle->write_events == NULL) {
         return NGX_ERROR;
     }
@@ -972,8 +1014,7 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         m = cf->cycle->modules[i]->ctx;
 
         if (m->create_conf) {
-            (*ctx)[cf->cycle->modules[i]->ctx_index] =
-                                                     m->create_conf(cf->cycle);
+            (*ctx)[cf->cycle->modules[i]->ctx_index] = m->create_conf(cf->cycle);
             if ((*ctx)[cf->cycle->modules[i]->ctx_index] == NULL) {
                 return NGX_CONF_ERROR;
             }
@@ -1011,8 +1052,7 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         m = cf->cycle->modules[i]->ctx;
 
         if (m->init_conf) {
-            rv = m->init_conf(cf->cycle,
-                              (*ctx)[cf->cycle->modules[i]->ctx_index]);
+            rv = m->init_conf(cf->cycle, (*ctx)[cf->cycle->modules[i]->ctx_index]);
             if (rv != NGX_CONF_OK) {
                 return rv;
             }

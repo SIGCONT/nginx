@@ -9,6 +9,9 @@
 #include <ngx_core.h>
 
 
+/*  设置主进程在后台运行，并切断与shell进程的继承关系
+ *  防止终端断开后主进程也被关闭
+ */
 ngx_int_t
 ngx_daemon(ngx_log_t *log)
 {

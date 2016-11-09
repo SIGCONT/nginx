@@ -86,6 +86,10 @@ ngx_init_modules(ngx_cycle_t *cycle)
 }
 
 
+/*  初始化对应子模块的ctx_index，并返回事件类模块的总个数
+ *
+ *
+ */
 ngx_int_t
 ngx_count_modules(ngx_cycle_t *cycle, ngx_uint_t type)
 {

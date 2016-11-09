@@ -45,6 +45,12 @@ struct ngx_cycle_s {
     ngx_uint_t                log_use_stderr;  /* unsigned  log_use_stderr:1; */
 
     ngx_connection_t        **files;
+
+
+    /*  指向第一个空闲的连接，其中的data成员作为next指针，构成空闲连接的单链表
+     *  获取和归还连接时从头部操作即可
+     *
+     */
     ngx_connection_t         *free_connections;
     ngx_uint_t                free_connection_n;
 
@@ -63,7 +69,16 @@ struct ngx_cycle_s {
     ngx_uint_t                connection_n;
     ngx_uint_t                files_n;
 
+
+    /*  指向连接池数组的首部
+     *
+     *
+     */
     ngx_connection_t         *connections;
+    /*  与连接池对应的事件池，预分配的连接和读事件、写事件数相同，
+     *  所以根据在数组中的序号来对应
+     *
+     */
     ngx_event_t              *read_events;
     ngx_event_t              *write_events;
 

@@ -14,7 +14,9 @@
 
 
 typedef struct {
+	//	70年到当前时间的秒数
     time_t      sec;
+    //	当前时间相对于sec的毫秒数
     ngx_uint_t  msec;
     ngx_int_t   gmtoff;
 } ngx_time_t;

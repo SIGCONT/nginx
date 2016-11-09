@@ -338,6 +338,9 @@ ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
     epcf = ngx_event_get_conf(cycle->conf_ctx, ngx_epoll_module);
 
     if (ep == -1) {
+        /*  
+         *  创建epoll对象，参数会被操作系统忽略
+         */
         ep = epoll_create(cycle->connection_n / 2);
 
         if (ep == -1) {
@@ -366,8 +369,10 @@ ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
             ngx_free(event_list);
         }
 
-        event_list = ngx_alloc(sizeof(struct epoll_event) * epcf->events,
-                               cycle->log);
+        /*
+         *  初始化event_list数组，用于存储发生的事件，数组的个数由配置项epoll_events指定
+         */
+        event_list = ngx_alloc(sizeof(struct epoll_event) * epcf->events, cycle->log);
         if (event_list == NULL) {
             return NGX_ERROR;
         }
@@ -377,8 +382,14 @@ ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
 
     ngx_io = ngx_os_io;
 
+    /*
+     *  将此模块的actions接口设置为全局ngx_event_actions接口
+     */
     ngx_event_actions = ngx_epoll_module_ctx.actions;
 
+    /*
+     *  默认使用ET模式来使用epoll，也即NGX_USE_CLEAR_EVENT
+     */
 #if (NGX_HAVE_CLEAR_EVENT)
     ngx_event_flags = NGX_USE_CLEAR_EVENT
 #else
@@ -621,6 +632,9 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 #endif
     }
 
+    /*
+     *  根据active标志位确定是否为活跃事件，以决定是修改还是添加时间
+     */
     if (e->active) {
         op = EPOLL_CTL_MOD;
         events |= prev;
@@ -648,10 +662,10 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
         return NGX_ERROR;
     }
 
+    /*
+     *  将事件的active标志位设置为1，表示当前事件是活跃的
+     */
     ev->active = 1;
-#if 0
-    ev->oneshot = (flags & NGX_ONESHOT_EVENT) ? 1 : 0;
-#endif
 
     return NGX_OK;
 }
@@ -810,11 +824,9 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
     ngx_queue_t       *queue;
     ngx_connection_t  *c;
 
-    /* NGX_TIMER_INFINITE == INFTIM */
-
-    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
-                   "epoll timer: %M", timer);
-
+    /*
+     *  调用epoll_wait获取事件
+     */
     events = epoll_wait(ep, event_list, (int) nevents, timer);
 
     err = (events == -1) ? ngx_errno : 0;
@@ -851,6 +863,9 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
         return NGX_ERROR;
     }
 
+    /*
+     *  遍历本次epoll_wait返回的所有事件
+     */
     for (i = 0; i < events; i++) {
         c = event_list[i].data.ptr;
 

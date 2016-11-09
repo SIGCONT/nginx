@@ -194,6 +194,11 @@ typedef struct {
 } ngx_event_actions_t;
 
 
+
+/*  事件驱动模块实现的事件操作接口结构体
+ *
+ *
+ */
 extern ngx_event_actions_t   ngx_event_actions;
 #if (NGX_HAVE_EPOLLRDHUP)
 extern ngx_uint_t            ngx_use_epoll_rdhup;
@@ -438,7 +443,10 @@ extern ngx_os_io_t  ngx_io;
 
 
 typedef struct {
+    //连接池的大小
     ngx_uint_t    connections;
+
+    //启用的事件驱动模块在事件模块类中的ctx_index
     ngx_uint_t    use;
 
     ngx_flag_t    multi_accept;
@@ -446,6 +454,7 @@ typedef struct {
 
     ngx_msec_t    accept_mutex_delay;
 
+    //启用的事件驱动模块的名字，与use对应
     u_char       *name;
 
 #if (NGX_DEBUG)

@@ -19,6 +19,9 @@ static void ngx_debug_accepted_connection(ngx_event_conf_t *ecf,
 #endif
 
 
+/*
+ *  处理新连接事件的回调函数
+ */
 void
 ngx_event_accept(ngx_event_t *ev)
 {
@@ -60,6 +63,10 @@ ngx_event_accept(ngx_event_t *ev)
     do {
         socklen = sizeof(ngx_sockaddr_t);
 
+        /*
+         *  调用accept方法建立新的TCP连接
+         *  lc:当前事件关联的ngx_connection_t
+         */
 #if (NGX_HAVE_ACCEPT4)
         if (use_accept4) {
             s = accept4(lc->fd, &sa.sockaddr, &socklen, SOCK_NONBLOCK);
@@ -138,6 +145,9 @@ ngx_event_accept(ngx_event_t *ev)
         (void) ngx_atomic_fetch_add(ngx_stat_accepted, 1);
 #endif
 
+        /*
+         *  成功建立TCP连接以后，设置负载均衡阈值，空闲连接数小于总连接数的1/8，则阈值大于0
+         */
         ngx_accept_disabled = ngx_cycle->connection_n / 8
                               - ngx_cycle->free_connection_n;
 
@@ -276,25 +286,6 @@ ngx_event_accept(ngx_event_t *ev)
                 return;
             }
         }
-
-#if (NGX_DEBUG)
-        {
-        ngx_str_t  addr;
-        u_char     text[NGX_SOCKADDR_STRLEN];
-
-        ngx_debug_accepted_connection(ecf, c);
-
-        if (log->log_level & NGX_LOG_DEBUG_EVENT) {
-            addr.data = text;
-            addr.len = ngx_sock_ntop(c->sockaddr, c->socklen, text,
-                                     NGX_SOCKADDR_STRLEN, 1);
-
-            ngx_log_debug3(NGX_LOG_DEBUG_EVENT, log, 0,
-                           "*%uA accept: %V fd:%d", c->number, &addr, s);
-        }
-
-        }
-#endif
 
         if (ngx_add_conn && (ngx_event_flags & NGX_USE_EPOLL_EVENT) == 0) {
             if (ngx_add_conn(c) == NGX_ERROR) {
@@ -638,29 +629,44 @@ ngx_event_recvmsg(ngx_event_t *ev)
 ngx_int_t
 ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
 {
+
+    /*
+     *  进程间的同步锁，非阻塞获取ngx_accept_mutex锁，成功则返回1，
+     *  失败则返回0说明锁被其他worker子进程占用
+     */
     if (ngx_shmtx_trylock(&ngx_accept_mutex)) {
 
-        ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
-                       "accept mutex locked");
-
+        /*
+         *  ngx_accept_mutex_held标志位为1说明进程已经获取到锁了，立刻返回
+         */
         if (ngx_accept_mutex_held && ngx_accept_events == 0) {
             return NGX_OK;
         }
 
+        /*
+         *  将所有监听连接的读事件添加到当前的事件驱动模块中
+         *  如果添加失败，则释放ngx_accept_mutex锁
+         */
         if (ngx_enable_accept_events(cycle) == NGX_ERROR) {
             ngx_shmtx_unlock(&ngx_accept_mutex);
             return NGX_ERROR;
         }
 
+        /*
+         *  当前进程的事件驱动模块已经开始监听所有的端口
+         *  把ngx_accept_mutex_held标志位置为1
+         *  此时进程占用着ngx_accept_mutex锁
+         */
         ngx_accept_events = 0;
         ngx_accept_mutex_held = 1;
 
         return NGX_OK;
     }
 
-    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
-                   "accept mutex lock failed: %ui", ngx_accept_mutex_held);
-
+    /*
+     *  获取ngx_accept_mutex锁失败，如果ngx_accept_mutex_held标志位还为1，
+     *  则需要将所有监听连接的读事件从事件驱动模块中移除
+     */
     if (ngx_accept_mutex_held) {
         if (ngx_disable_accept_events(cycle, 0) == NGX_ERROR) {
             return NGX_ERROR;
@@ -673,6 +679,9 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
 }
 
 
+/*
+ *  将所有监听连接的读事件添加到当前的事件驱动模块中
+ */
 static ngx_int_t
 ngx_enable_accept_events(ngx_cycle_t *cycle)
 {
@@ -698,6 +707,9 @@ ngx_enable_accept_events(ngx_cycle_t *cycle)
 }
 
 
+/*
+ *  将所有监听连接的读事件从事件驱动模块中移除
+ */
 static ngx_int_t
 ngx_disable_accept_events(ngx_cycle_t *cycle, ngx_uint_t all)
 {
@@ -727,8 +739,7 @@ ngx_disable_accept_events(ngx_cycle_t *cycle, ngx_uint_t all)
 
 #endif
 
-        if (ngx_del_event(c->read, NGX_READ_EVENT, NGX_DISABLE_EVENT)
-            == NGX_ERROR)
+        if (ngx_del_event(c->read, NGX_READ_EVENT, NGX_DISABLE_EVENT) == NGX_ERROR)
         {
             return NGX_ERROR;
         }
