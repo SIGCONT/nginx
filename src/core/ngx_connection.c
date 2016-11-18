@@ -588,6 +588,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
                 continue;
             }
 
+            //开始监听listening数组中的所有端口
             if (listen(s, ls[i].backlog) == -1) {
                 err = ngx_socket_errno;
 

@@ -199,7 +199,8 @@ main(int argc, char *const *argv)
         return 1;
     }
 
-    /*  读取命令行参数，设置对应的全局变量ngx_signal和ngx_process及标识位
+    /*  
+     *  读取命令行参数，设置对应的全局变量ngx_signal和ngx_process及标识位
      *  如信号命令
      */
     if (ngx_get_options(argc, argv) != NGX_OK) {
@@ -258,8 +259,8 @@ main(int argc, char *const *argv)
     }
 
 
-    /*  设置配置文件的路径信息
-     *
+    /*  
+     *  设置配置文件路径
      */
     if (ngx_process_options(&init_cycle) != NGX_OK) {
         return 1;
@@ -277,23 +278,26 @@ main(int argc, char *const *argv)
         return 1;
     }
 
+    /*
+     *  如果处于升级中，则监听环境变量里传递的监听句柄
+     */
     if (ngx_add_inherited_sockets(&init_cycle) != NGX_OK) {
         return 1;
     }
 
 
-    /*  循环ngx_modules数组，初始化所有模块的index和name
+    /*  
+     *  循环ngx_modules数组，初始化所有模块的index和name
      *  全局变量ngx_modules_n为模块的个数
-     *
      */
     if (ngx_preinit_modules() != NGX_OK) {
         return 1;
     }
 
 
-    /*  初始化全局的ngx_cycle_t结构体
+    /*  
+     *  初始化全局的ngx_cycle_t结构体
      *  读取配置文件，为所有的核心模块分配配置项地址，解析配置项，合并配置项
-     *
      */
     cycle = ngx_init_cycle(&init_cycle);
     if (cycle == NULL) {
@@ -332,7 +336,8 @@ main(int argc, char *const *argv)
     }
 
 
-    /*  此标识位由ngx_get_options()设置
+    /*  
+     *  此标识位由ngx_get_options()设置
      *  在ngx_get_options()中如果判断参数如-s，ngx_signal指向信号字符串
      *  最终通过kill给nginx主进程发送对应的信号值
      *  执行完成之后即退出，因为nginx主进程一定存在，所以此方法可以在ngx_init_signals()
@@ -352,12 +357,8 @@ main(int argc, char *const *argv)
         ngx_process = NGX_PROCESS_MASTER;
     }
 
-#if !(NGX_WIN32)
-
-
-    /*  循环signals数组，为主进程注册所有的信号处理函数
-     *
-     *
+    /*  
+     *  循环signals数组，为主进程注册所有的信号处理函数
      */
     if (ngx_init_signals(cycle->log) != NGX_OK) {
         return 1;
@@ -374,8 +375,6 @@ main(int argc, char *const *argv)
     if (ngx_inherited) {
         ngx_daemonized = 1;
     }
-
-#endif
 
     if (ngx_create_pidfile(&ccf->pid, cycle->log) != NGX_OK) {
         return 1;
@@ -395,8 +394,8 @@ main(int argc, char *const *argv)
     ngx_use_stderr = 0;
 
 
-    /*  初始化工作都完成以后，开始主进程循环
-     *
+    /*  
+     *  检测Nginx运行方式
      */
     if (ngx_process == NGX_PROCESS_SINGLE) {
         ngx_single_process_cycle(cycle);
@@ -730,8 +729,8 @@ ngx_exec_new_binary(ngx_cycle_t *cycle, char *const *argv)
 }
 
 
-/*  读取命令行参数，设置全局标识位ngx_signal和ngx_process
- *
+/*  
+ *  读取命令行参数，设置全局标识位ngx_signal和ngx_process
  */
 static ngx_int_t
 ngx_get_options(int argc, char *const *argv)
@@ -740,9 +739,7 @@ ngx_get_options(int argc, char *const *argv)
     ngx_int_t   i;
 
 
-    /*  循环程序名后的每一个参数
-     *
-     */
+    //遍历命令行后的所有参数
     for (i = 1; i < argc; i++) {
 
         p = (u_char *) argv[i];
@@ -827,7 +824,8 @@ ngx_get_options(int argc, char *const *argv)
                 return NGX_ERROR;
 
 
-            /*  此时p指向-s后紧接着的下一个字符
+            /*  
+             *  此时p指向-s后紧接着的下一个字符
              *  如果-s后紧接着信号命令字符串，则保存到全局变量ngx_signal
              *  所以下面的写法也是正确的 -sstop
              *  -s后面必须要有信号命令字符串，否则程序报错
@@ -844,11 +842,13 @@ ngx_get_options(int argc, char *const *argv)
                     return NGX_ERROR;
                 }
 
+                //ngx_signal指向对应的命令字符串
                 if (ngx_strcmp(ngx_signal, "stop") == 0
                     || ngx_strcmp(ngx_signal, "quit") == 0
                     || ngx_strcmp(ngx_signal, "reopen") == 0
                     || ngx_strcmp(ngx_signal, "reload") == 0)
                 {
+                    //当前进程仅用于发送信号
                     ngx_process = NGX_PROCESS_SIGNALLER;
                     goto next;
                 }
@@ -874,13 +874,6 @@ ngx_get_options(int argc, char *const *argv)
 static ngx_int_t
 ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
 {
-#if (NGX_FREEBSD)
-
-    ngx_os_argv = (char **) argv;
-    ngx_argc = argc;
-    ngx_argv = (char **) argv;
-
-#else
     size_t     len;
     ngx_int_t  i;
 
@@ -904,8 +897,6 @@ ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
     }
 
     ngx_argv[i] = NULL;
-
-#endif
 
     ngx_os_environ = environ;
 

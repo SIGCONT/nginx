@@ -34,9 +34,8 @@ static ngx_connection_t  dumb;
 
 
 
-/*  初始化全局ngx_cycle_t结构体，读取并配置所有核心模块的配置项
- *
- *
+/*  
+ *  初始化全局ngx_cycle_t结构体，读取并配置所有核心模块的配置项
  */
 ngx_cycle_t *
 ngx_init_cycle(ngx_cycle_t *old_cycle)
@@ -130,8 +129,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     cycle->paths.pool = pool;
 
 
-    if (ngx_array_init(&cycle->config_dump, pool, 1, sizeof(ngx_conf_dump_t))
-        != NGX_OK)
+    if (ngx_array_init(&cycle->config_dump, pool, 1, sizeof(ngx_conf_dump_t)) != NGX_OK)
     {
         ngx_destroy_pool(pool);
         return NULL;
@@ -147,8 +145,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         n = 20;
     }
 
-    if (ngx_list_init(&cycle->open_files, pool, n, sizeof(ngx_open_file_t))
-        != NGX_OK)
+    if (ngx_list_init(&cycle->open_files, pool, n, sizeof(ngx_open_file_t)) != NGX_OK)
     {
         ngx_destroy_pool(pool);
         return NULL;
@@ -166,13 +163,13 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         n = 1;
     }
 
-    if (ngx_list_init(&cycle->shared_memory, pool, n, sizeof(ngx_shm_zone_t))
-        != NGX_OK)
+    if (ngx_list_init(&cycle->shared_memory, pool, n, sizeof(ngx_shm_zone_t)) != NGX_OK)
     {
         ngx_destroy_pool(pool);
         return NULL;
     }
 
+    //初始化listening数组的存储空间
     n = old_cycle->listening.nelts ? old_cycle->listening.nelts : 10;
 
     cycle->listening.elts = ngx_pcalloc(pool, n * sizeof(ngx_listening_t));
@@ -190,10 +187,8 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     ngx_queue_init(&cycle->reusable_connections_queue);
 
 
-
-    /*  初始化存储所有模块的配置项的指针数组 void ****conf_ctx
-     *
-     *
+    /*  
+     *  初始化存储所有模块的配置项的指针数组 void ****conf_ctx
      */
     cycle->conf_ctx = ngx_pcalloc(pool, ngx_max_module * sizeof(void *));
     if (cycle->conf_ctx == NULL) {
@@ -222,15 +217,18 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     ngx_strlow(cycle->hostname.data, (u_char *) hostname, cycle->hostname.len);
 
 
+    /*
+     *  把modules数组复制到cycle成员modules中，以作临时使用
+     */
     if (ngx_cycle_modules(cycle) != NGX_OK) {
         ngx_destroy_pool(pool);
         return NULL;
     }
 
 
-    /*  为所有核心模块分配存储配置项的空间(调用create_conf)
-     *
-     *
+    /*  
+     *  调用所有核心模块的create_conf方法生成存放配置项的结构体
+     *  并放到指定序号位置
      */
     for (i = 0; cycle->modules[i]; i++) {
         if (cycle->modules[i]->type != NGX_CORE_MODULE) {
@@ -275,9 +273,6 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     conf.module_type = NGX_CORE_MODULE;
     conf.cmd_type = NGX_MAIN_CONF;
 
-#if 0
-    log->log_level = NGX_LOG_DEBUG_ALL;
-#endif
 
     if (ngx_conf_param(&conf) != NGX_CONF_OK) {
         environ = senv;
@@ -285,6 +280,9 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
+    /*
+     *  遍历nginx.conf中的所有配置项并解析配置项
+     */
     if (ngx_conf_parse(&conf, &cycle->conf_file) != NGX_CONF_OK) {
         environ = senv;
         ngx_destroy_cycle_pools(&conf);
@@ -297,9 +295,8 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     }
 
 
-    /*  初始化所有核心模块的配置项(调用init_conf)
-     *
-     *
+    /*  
+     *  调用所有核心模块的init_conf方法
      */
     for (i = 0; cycle->modules[i]; i++) {
         if (cycle->modules[i]->type != NGX_CORE_MODULE) {
@@ -309,9 +306,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         module = cycle->modules[i]->ctx;
 
         if (module->init_conf) {
-            if (module->init_conf(cycle,
-                                  cycle->conf_ctx[cycle->modules[i]->index])
-                == NGX_CONF_ERROR)
+            if (module->init_conf(cycle, cycle->conf_ctx[cycle->modules[i]->index]) == NGX_CONF_ERROR)
             {
                 environ = senv;
                 ngx_destroy_cycle_pools(&conf);
@@ -626,9 +621,9 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     }
 
 
-    /*  对于cycle中的listening数组，初始化并开始监听对应的文件描述符
+    /*  
+     *  对于cycle中的listening数组，初始化并开始监听对应的文件描述符
      *  之后客户端可以开始发送请求
-     *
      */
     if (ngx_open_listening_sockets(cycle) != NGX_OK) {
         goto failed;
@@ -648,9 +643,8 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     pool->log = cycle->log;
 
 
-    /*  调用所有模块的init()方法
-     *
-     *
+    /*  
+     *  调用所有模块的init_modules方法
      */
     if (ngx_init_modules(cycle) != NGX_OK) {
         /* fatal */

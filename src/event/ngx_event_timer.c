@@ -50,6 +50,9 @@ ngx_event_find_timer(void)
 }
 
 
+/*
+ *  worker进程处理定时器事件
+ */
 void
 ngx_event_expire_timers(void)
 {

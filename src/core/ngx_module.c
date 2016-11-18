@@ -22,7 +22,8 @@ ngx_uint_t         ngx_max_module;
 static ngx_uint_t  ngx_modules_n;
 
 
-/*  循环ngx_modules数组，初始化所有模块的index和name
+/*  
+ *  循环ngx_modules数组，初始化所有模块的index和name
  *  ngx_modules_n为模块的总个数
  */
 ngx_int_t
@@ -50,14 +51,12 @@ ngx_cycle_modules(ngx_cycle_t *cycle)
      * copy static modules to it
      */
 
-    cycle->modules = ngx_pcalloc(cycle->pool, (ngx_max_module + 1)
-                                              * sizeof(ngx_module_t *));
+    cycle->modules = ngx_pcalloc(cycle->pool, (ngx_max_module + 1) * sizeof(ngx_module_t *));
     if (cycle->modules == NULL) {
         return NGX_ERROR;
     }
 
-    ngx_memcpy(cycle->modules, ngx_modules,
-               ngx_modules_n * sizeof(ngx_module_t *));
+    ngx_memcpy(cycle->modules, ngx_modules, ngx_modules_n * sizeof(ngx_module_t *));
 
     cycle->modules_n = ngx_modules_n;
 
@@ -65,9 +64,8 @@ ngx_cycle_modules(ngx_cycle_t *cycle)
 }
 
 
-/*  调用所有模块的init_module()
- *
- *
+/*  
+ *  调用所有模块的init_module方法
  */
 ngx_int_t
 ngx_init_modules(ngx_cycle_t *cycle)

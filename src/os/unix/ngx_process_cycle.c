@@ -69,8 +69,8 @@ static ngx_log_t        ngx_exit_log;
 static ngx_open_file_t  ngx_exit_log_file;
 
 
-/*  主进程循环
- *
+/*  
+ *  master进程循环
  */
 void
 ngx_master_process_cycle(ngx_cycle_t *cycle)
@@ -88,9 +88,9 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
     ngx_core_conf_t   *ccf;
 
 
-    /*  修改进程的信号掩码，被屏蔽的信号不能被进程接收，由操作系统保留为挂起信号
+    /*  
+     *  修改进程的信号掩码，被屏蔽的信号不能被进程接收，由操作系统保留为挂起信号
      *  SIG_BLOCK表示与进程当前掩码取并集
-     *
      */
     sigemptyset(&set);
     sigaddset(&set, SIGCHLD);
@@ -133,17 +133,16 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
     ngx_setproctitle(title);
 
 
-    /*  取得ngx_core_module模块的配置项结构体，从中或者工作进程数量worker_processes
-     *
+    /*  
+     *  取得ngx_core_module模块的配置项结构体，从中获取工作进程数量worker_processes
      */
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
 
-    /*  启动工作者进程
-     *
+    /*  
+     *  启动工作者进程
      */
-    ngx_start_worker_processes(cycle, ccf->worker_processes,
-                               NGX_PROCESS_RESPAWN);
+    ngx_start_worker_processes(cycle, ccf->worker_processes, NGX_PROCESS_RESPAWN);
     ngx_start_cache_manager_processes(cycle, 0);
 
     ngx_new_binary = 0;
@@ -152,7 +151,8 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
     live = 1;
 
 
-    /*  master进程开始无限循环，等待用户或者子进程发送信号
+    /*  
+     *  master进程开始无限循环，等待用户或者子进程发送信号
      *  设置标识位，执行对应操作
      */
     for ( ;; ) {
@@ -180,24 +180,24 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "sigsuspend");
 
 
-        /*  修改进程信号掩码为传入的掩码，此时set为空，系统发送所有挂起信号给进程
+        /*  
+         *  修改进程信号掩码为传入的掩码，此时set为空，系统发送所有挂起信号给进程
          *  信号处理完成之后，将信号掩码还原为调用之前的状态
          *  这样使得进程可以自己选择合适的时机处理信号
+         *  master进程在未收到信号时都在此处等待
          */
         sigsuspend(&set);
 
-        /*  更新6个全局时间变量
-         *
+        /*  
+         *  更新6个全局时间变量
          */
         ngx_time_update();
 
-        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
-                       "wake up, sigio %i", sigio);
+        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "wake up, sigio %i", sigio);
 
 
-        /*  master进程收到SIGCHLD信号后设置ngx_reap标识位，表示需要再次启动worker进程
-         *
-         *
+        /*  
+         *  master进程收到SIGCHLD信号后设置ngx_reap标识位，表示需要再次启动worker进程
          */
         if (ngx_reap) {
             ngx_reap = 0;
@@ -373,16 +373,14 @@ ngx_single_process_cycle(ngx_cycle_t *cycle)
 }
 
 
-/*  启动工作者进程
- *
+/*  
+ *  启动worker进程
  */
 static void
 ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
 {
     ngx_int_t      i;
     ngx_channel_t  ch;
-
-    ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "start worker processes");
 
     ngx_memzero(&ch, sizeof(ngx_channel_t));
 
@@ -391,11 +389,10 @@ ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
     for (i = 0; i < n; i++) {
 
 
-        /*  根据配置参数，生成对应个数的工作进程，第2个参数为工作进程主循环的方法指针
-         *
-         *
+        /*  
+         *  根据配置参数，生成对应个数的工作进程，第2个参数为工作进程主循环的方法指针
          */
-        ngx_spawn_process(cycle, ngx_worker_process_cycle,
+        ngx_spawn_process(cycle, ngx_worker_process_cycle, 
                           (void *) (intptr_t) i, "worker process", type);
 
         ch.pid = ngx_processes[ngx_process_slot].pid;
@@ -403,9 +400,8 @@ ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
         ch.fd = ngx_processes[ngx_process_slot].channel[0];
 
 
-        /*  将新创建的worker进程信息保存在ch中，通过channel[0]发送给worker进程
-         *
-         *
+        /*  
+         *  将新创建的worker进程信息保存在ch中，通过channel[0]发送给worker进程
          */
         ngx_pass_open_channel(cycle, &ch);
     }
@@ -768,7 +764,8 @@ ngx_master_process_exit(ngx_cycle_t *cycle)
 }
 
 
-/*  worker进程主循环
+/*  
+ *  worker进程主循环
  *  data为循环生成worker进程时的序号
  */
 static void
@@ -779,10 +776,17 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
     ngx_process = NGX_PROCESS_WORKER;
     ngx_worker = worker;
 
+    /*
+     *  调用所有模块的init_process方法
+     */
     ngx_worker_process_init(cycle, worker);
 
     ngx_setproctitle("worker process");
 
+    /*
+     *  worker进程循环中主要关注4个标志位
+     *  ngx_exiting、ngx_terminate、ngx_quit、ngx_reopen
+     */
     for ( ;; ) {
 
         if (ngx_exiting) {
@@ -795,8 +799,6 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
                 ngx_worker_process_exit(cycle);
             }
         }
-
-        ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "worker cycle");
 
         /*
          *  Nginx真正处理Web服务的方法
@@ -811,8 +813,7 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 
         if (ngx_quit) {
             ngx_quit = 0;
-            ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0,
-                          "gracefully shutting down");
+            ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "gracefully shutting down");
             ngx_setproctitle("worker process is shutting down");
 
             if (!ngx_exiting) {
@@ -949,9 +950,8 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
     }
 
 
-    /*  循环所有模块，调用init_process()
-     *
-     *
+    /*
+     *  调用所有模块的init_process方法
      */
     for (i = 0; cycle->modules[i]; i++) {
         if (cycle->modules[i]->init_process) {

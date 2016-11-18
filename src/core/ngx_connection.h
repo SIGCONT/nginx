@@ -15,7 +15,11 @@
 
 typedef struct ngx_listening_s  ngx_listening_t;
 
+/*
+ *  代表服务器监听的端口
+ */
 struct ngx_listening_s {
+    //socket套接字句柄
     ngx_socket_t        fd;
 
     struct sockaddr    *sockaddr;
@@ -25,8 +29,12 @@ struct ngx_listening_s {
 
     int                 type;
 
+    //TCP实现监听时的backlog队列，表示三次握手成功后还未被取出的连接最大个数
+    //作为listen系统调用的参数
     int                 backlog;
+    //套接字接收缓冲区大小
     int                 rcvbuf;
+    //套接字发送缓冲区大小
     int                 sndbuf;
 #if (NGX_HAVE_KEEPALIVE_TUNABLE)
     int                 keepidle;
@@ -124,9 +132,7 @@ typedef enum {
 
 struct ngx_connection_s {
 
-    /*
-     *  连接未使用时作为连接池中空闲连接链表中的next指针
-     */
+    //连接未使用时作为连接池中空闲连接链表中的next指针
     void               *data;
     ngx_event_t        *read;
     ngx_event_t        *write;
@@ -138,6 +144,7 @@ struct ngx_connection_s {
     ngx_recv_chain_pt   recv_chain;
     ngx_send_chain_pt   send_chain;
 
+    //连接对应的ngx_listening_t监听对象，此连接由listening监听端口的事件建立
     ngx_listening_t    *listening;
 
     off_t               sent;
@@ -148,6 +155,7 @@ struct ngx_connection_s {
 
     int                 type;
 
+    //连接客户端的sockaddr结构体
     struct sockaddr    *sockaddr;
     socklen_t           socklen;
     ngx_str_t           addr_text;

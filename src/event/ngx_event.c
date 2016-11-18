@@ -77,7 +77,8 @@ ngx_atomic_t  *ngx_stat_waiting = &ngx_stat_waiting0;
 #endif
 
 
-/*  此核心模块感兴趣的配置项
+/*  
+ *  此核心模块感兴趣的配置项
  *  在回调方法中负责所有事件类模块配置项的分配、解析
  */
 static ngx_command_t  ngx_events_commands[] = {
@@ -100,8 +101,8 @@ static ngx_core_module_t  ngx_events_module_ctx = {
 };
 
 
-/*  核心模块，负责管理所有的事件类模块
- *
+/*  
+ *  核心模块，负责管理所有的事件类模块
  */
 ngx_module_t  ngx_events_module = {
     NGX_MODULE_V1,
@@ -125,9 +126,7 @@ static ngx_str_t  event_core_name = ngx_string("event_core");
 static ngx_command_t  ngx_event_core_commands[] = {
 
 
-    /*  连接池的大小，每个worker子进程中支持的TCP最大连接数
-     *
-     */
+    //连接池的大小，每个worker子进程中支持的TCP最大连接数
     { ngx_string("worker_connections"),
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_event_connections,
@@ -135,9 +134,7 @@ static ngx_command_t  ngx_event_core_commands[] = {
       0,
       NULL },
 
-    /*  确定选择哪一个事件模块作为事件驱动机制
-     *
-     */
+    //确定选择哪一个事件模块作为事件驱动机制
     { ngx_string("use"),
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_event_use,
@@ -145,6 +142,7 @@ static ngx_command_t  ngx_event_core_commands[] = {
       0,
       NULL },
 
+    //在接收到一个新连接事件时，调用accept以尽可能多地接收连接
     { ngx_string("multi_accept"),
       NGX_EVENT_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
@@ -152,6 +150,7 @@ static ngx_command_t  ngx_event_core_commands[] = {
       offsetof(ngx_event_conf_t, multi_accept),
       NULL },
 
+    //确定是否使用accept_mutex负载均衡锁，默认为开启
     { ngx_string("accept_mutex"),
       NGX_EVENT_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
@@ -178,7 +177,8 @@ static ngx_command_t  ngx_event_core_commands[] = {
 
 
 
-/*  事件类模块的通用接口
+/*  
+ *  事件类模块的通用接口
  *  ngx_str_t *name; 事件类模块名称
  *  void *(*create_conf)(ngx_cycle_t *cycle); 回调方法，解析配置项前，创建配置项结构体
  *  char *(*init_conf)(ngx_cycle_t *cycle, void *conf); 回调方法，解析配置项后处理配置项
@@ -190,16 +190,18 @@ ngx_event_module_t  ngx_event_core_module_ctx = {
     ngx_event_core_init_conf,              /* init configuration */
 
 
-    /*  事件驱动机制需要实现的10个抽象方法
+    /*  
+     *  事件驱动机制需要实现的10个抽象方法
      *  有9个事件驱动模块来具体实现
      */
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
 
-/*  事件类模块中的第一个
- *
- *
+/*  
+ *  事件类模块中的第一个
+ *  在ngx_event_process_init中会根据配置决定使用哪个事件驱动模块
+ *  并把事件驱动方法挂载到全局接口
  */
 ngx_module_t  ngx_event_core_module = {
     NGX_MODULE_V1,
@@ -226,6 +228,9 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
     ngx_uint_t  flags;
     ngx_msec_t  timer, delta;
 
+    /*
+     *  如果用户配置了时间精度
+     */
     if (ngx_timer_resolution) {
         timer = NGX_TIMER_INFINITE;
         flags = 0;
@@ -290,7 +295,8 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 }
 
 
-/*  封装的简单方法用于在事件驱动模块中添加或者移除事件，
+/*  
+ *  封装的简单方法用于在事件驱动模块中添加或者移除事件，
  *  而不会直接调用事件驱动模块的add和del方法，造成强耦合
  *  rev:要操作的事件
  *  flags:事件的驱动方式，一般可以忽略
@@ -303,8 +309,7 @@ ngx_handle_read_event(ngx_event_t *rev, ngx_uint_t flags)
         /* kqueue, epoll */
 
         if (!rev->active && !rev->ready) {
-            if (ngx_add_event(rev, NGX_READ_EVENT, NGX_CLEAR_EVENT)
-                == NGX_ERROR)
+            if (ngx_add_event(rev, NGX_READ_EVENT, NGX_CLEAR_EVENT) == NGX_ERROR)
             {
                 return NGX_ERROR;
             }
@@ -612,8 +617,10 @@ ngx_timer_signal_handler(int signo)
 #endif
 
 
-/*  在fork()出子进程之后，每个worker子进程在工作循环之前调用
- *
+/*  
+ *  在fork()出子进程之后，每个worker子进程在工作循环之前调用
+ *  分配连接池、事件池，根据配置选择事件驱动模块并初始化
+ *  将驱动方法挂载到全局驱动接口
  */
 static ngx_int_t
 ngx_event_process_init(ngx_cycle_t *cycle)
@@ -629,7 +636,8 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
     ecf = ngx_event_get_conf(cycle->conf_ctx, ngx_event_core_module);
 
-    /*  当打开了accept_mutex负载均衡锁，同时使用了master模式且worker进程数大于1时，
+    /*  
+     *  当打开了accept_mutex负载均衡锁，同时使用了master模式且worker进程数大于1时，
      *  才正式确定进程使用负载均衡锁
      */
     if (ccf->master && ccf->worker_processes > 1 && ecf->accept_mutex) {
@@ -655,6 +663,8 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     /*  
      *  找到配置文件中所指定启用的事件驱动模块
      *  调用事件驱动结构体中的init方法
+     *  此时会调用ngx_epoll_module的ngx_epoll_init方法
+     *  进行初始化工作，并设置全局事件驱动接口
      */
     for (m = 0; cycle->modules[m]; m++) {
         if (cycle->modules[m]->type != NGX_EVENT_MODULE) {
@@ -674,7 +684,6 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         break;
     }
 
-#if !(NGX_WIN32)
 
     if (ngx_timer_resolution && !(ngx_event_flags & NGX_USE_TIMER_EVENT)) {
         struct sigaction  sa;
@@ -719,16 +728,6 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         }
     }
 
-#else
-
-    if (ngx_timer_resolution && !(ngx_event_flags & NGX_USE_TIMER_EVENT)) {
-        ngx_log_error(NGX_LOG_WARN, cycle->log, 0,
-                      "the \"timer_resolution\" directive is not supported "
-                      "with the configured event method, ignored");
-        ngx_timer_resolution = 0;
-    }
-
-#endif
 
     /*  
      *  为连接池分配空间
@@ -901,11 +900,9 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #if (NGX_HAVE_EPOLLEXCLUSIVE)
 
-        if ((ngx_event_flags & NGX_USE_EPOLL_EVENT)
-            && ccf->worker_processes > 1)
+        if ((ngx_event_flags & NGX_USE_EPOLL_EVENT) && ccf->worker_processes > 1)
         {
-            if (ngx_add_event(rev, NGX_READ_EVENT, NGX_EXCLUSIVE_EVENT)
-                == NGX_ERROR)
+            if (ngx_add_event(rev, NGX_READ_EVENT, NGX_EXCLUSIVE_EVENT) == NGX_ERROR)
             {
                 return NGX_ERROR;
             }

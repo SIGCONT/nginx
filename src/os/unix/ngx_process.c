@@ -31,9 +31,8 @@ char           **ngx_argv;
 char           **ngx_os_argv;
 
 
-/*  全局ngx_processes数组
- *
- *
+/*  
+ *  ngx_processes全局数组
  */
 ngx_int_t        ngx_process_slot;
 ngx_socket_t     ngx_channel;
@@ -41,7 +40,8 @@ ngx_int_t        ngx_last_process;
 ngx_process_t    ngx_processes[NGX_MAX_PROCESSES];
 
 
-/*  全局signals数组，定义了程序需要处理的所有信号值，对应的命令参数以及相应的信号处理函数
+/*  
+ *  全局signals数组，定义了程序需要处理的所有信号值，对应的命令参数以及相应的信号处理函数
  *  注册之后会继承给工作进程
  *
  */
@@ -106,17 +106,16 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
     ngx_int_t  s;
 
 
-    /*  第一次循环生成worker进程时，respwan值为NGX_PROCESS_RESPAWN(-3)
-     *
-     *
+    /*  
+     *  第一次循环生成worker进程时，respwan值为NGX_PROCESS_RESPAWN(-3)
      */
     if (respawn >= 0) {
         s = respawn;
 
     } else {
 
-        /*  ngx_processes全局数组中找到第一个可用元素的下标
-         *
+        /*  
+         *  ngx_processes全局数组中找到第一个可用元素的下标
          */
         for (s = 0; s < ngx_last_process; s++) {
             if (ngx_processes[s].pid == -1) {
@@ -138,7 +137,8 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
         /* Solaris 9 still has no AF_LOCAL */
 
 
-        /*  socketpair()创建一对socket描述符，供master进程和worker进程通信
+        /*  
+         *  socketpair()创建一对socket描述符，供master进程和worker进程通信
          *  ngx_process_t中：ngx_socket_t channel[2]
          *  其中channel[0]给master进程使用，channel[1]给worker进程使用
          */
@@ -202,8 +202,8 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
         }
 
 
-        /*  保存到全局变量以便worker进程使用
-         *
+        /*  
+         *  保存到全局变量以便worker进程使用
          */
         ngx_channel = ngx_processes[s].channel[1];
 
@@ -343,6 +343,9 @@ ngx_init_signals(ngx_log_t *log)
 }
 
 
+/*
+ *  信号处理函数，进程收到的所有信号由此处理
+ */
 void
 ngx_signal_handler(int signo)
 {
@@ -367,6 +370,10 @@ ngx_signal_handler(int signo)
 
     switch (ngx_process) {
 
+    /*  
+     *  master进程的信号处理流程
+     *  接收到对应的信号时设置标识位
+     */
     case NGX_PROCESS_MASTER:
     case NGX_PROCESS_SINGLE:
         switch (signo) {
@@ -434,9 +441,9 @@ ngx_signal_handler(int signo)
         break;
 
 
-    /*  worker进程的信号处理流程
+    /*  
+     *  worker进程的信号处理流程
      *  接收到对应的信号时设置标识位
-     *
      */
     case NGX_PROCESS_WORKER:
     case NGX_PROCESS_HELPER:
@@ -483,6 +490,10 @@ ngx_signal_handler(int signo)
                       "before either old or new binary's process");
     }
 
+    /*
+     *  如果收到worker进程结束的信号，使用waitpid获取结束进程的相关信息
+     *  并更新ngx_processes全局数组
+     */
     if (signo == SIGCHLD) {
         ngx_process_get_status();
     }

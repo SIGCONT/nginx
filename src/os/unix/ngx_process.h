@@ -21,7 +21,14 @@ typedef void (*ngx_spawn_proc_pt) (ngx_cycle_t *cycle, void *data);
 
 typedef struct {
     ngx_pid_t           pid;
+    /*
+     *  由waitpid系统调用获取到的进程状态
+     */
     int                 status;
+    /*
+     *  由socketpair系统调用产生出的用于进程间通信的socket句柄
+     *  用于master与worker进程间的通信
+     */
     ngx_socket_t        channel[2];
 
     ngx_spawn_proc_pt   proc;
@@ -44,6 +51,9 @@ typedef struct {
 } ngx_exec_ctx_t;
 
 
+/*
+ *  定义1024个元素的ngx_processes数组，也就是最多只能有1024个子进程
+ */
 #define NGX_MAX_PROCESSES         1024
 
 #define NGX_PROCESS_NORESPAWN     -1

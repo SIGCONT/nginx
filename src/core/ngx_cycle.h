@@ -47,11 +47,12 @@ struct ngx_cycle_s {
     ngx_connection_t        **files;
 
 
-    /*  指向第一个空闲的连接，其中的data成员作为next指针，构成空闲连接的单链表
+    /*  
+     *  指向第一个空闲的连接，其中的data成员作为next指针，构成空闲连接的单链表
      *  获取和归还连接时从头部操作即可
-     *
      */
     ngx_connection_t         *free_connections;
+    //可用连接池中连接的总数
     ngx_uint_t                free_connection_n;
 
     ngx_module_t            **modules;
@@ -60,7 +61,11 @@ struct ngx_cycle_s {
 
     ngx_queue_t               reusable_connections_queue;
 
+    /*
+     *  服务器监听的端口数组
+     */
     ngx_array_t               listening;
+    //动态数组容器，保存Nginx所有要操作的目录
     ngx_array_t               paths;
     ngx_array_t               config_dump;
     ngx_list_t                open_files;
@@ -75,18 +80,29 @@ struct ngx_cycle_s {
      *
      */
     ngx_connection_t         *connections;
-    /*  与连接池对应的事件池，预分配的连接和读事件、写事件数相同，
+    /*  
+     *  与连接池对应的事件池，预分配的连接和读事件、写事件数相同，
      *  所以根据在数组中的序号来对应
-     *
      */
     ngx_event_t              *read_events;
     ngx_event_t              *write_events;
 
     ngx_cycle_t              *old_cycle;
 
+    /*
+     *  配置文件相对于安装目录的路径
+     */
     ngx_str_t                 conf_file;
     ngx_str_t                 conf_param;
+
+    /*
+     *  配置文件所在目录的路径
+     */
     ngx_str_t                 conf_prefix;
+
+    /*
+     *  安装目录的路径
+     */
     ngx_str_t                 prefix;
     ngx_str_t                 lock_file;
     ngx_str_t                 hostname;
