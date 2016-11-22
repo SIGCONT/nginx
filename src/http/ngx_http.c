@@ -82,9 +82,9 @@ ngx_str_t  ngx_http_html_default_types[] = {
 
 static ngx_command_t  ngx_http_commands[] = {
 
-    /*  解析配置文件时遇到http块，则调用ngx_http_block()
+    /*  
+     *  解析配置文件时遇到http块，则调用ngx_http_block()
      *  此核心模块本身不需要存储配置项
-     *
      */
     { ngx_string("http"),
       NGX_MAIN_CONF|NGX_CONF_BLOCK|NGX_CONF_NOARGS,
@@ -97,8 +97,8 @@ static ngx_command_t  ngx_http_commands[] = {
 };
 
 
-/*  核心模块的接口，不需要存储配置项信息，所以不分配配置项存储地址
- *
+/*  
+ *  核心模块的接口，不需要存储配置项信息，所以不分配配置项存储地址
  */
 static ngx_core_module_t  ngx_http_module_ctx = {
     ngx_string("http"),
@@ -107,8 +107,8 @@ static ngx_core_module_t  ngx_http_module_ctx = {
 };
 
 
-/*  负责所有http模块的核心模块
- *
+/*  
+ *  负责所有http模块的核心模块，index序号为6
  */
 ngx_module_t  ngx_http_module = {
     NGX_MODULE_V1,
@@ -126,8 +126,9 @@ ngx_module_t  ngx_http_module = {
 };
 
 
-/*  核心模块定义了新的模块类型NGX_HTTP_MODULE
- *  此核心模块负责管理所有的http模块
+/*  
+ *  核心模块定义了新的模块类型NGX_HTTP_MODULE
+ *  并负责管理所有的http模块
  */
 static char *
 ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
@@ -148,7 +149,8 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     /* the main http context */
 
 
-    /*  分配所有http模块配置项的存储空间
+    /*  
+     *  分配所有http模块配置项的存储空间
      *  解析配置文件时每遇到一个http块、serv快、loc块，都会分配一个ngx_http_conf_ctx_t结构体
      *  其中包含3个指针数组，对应所有http模块的三个级别的配置项
      */
@@ -160,69 +162,46 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     *(ngx_http_conf_ctx_t **) conf = ctx;
 
 
-    /* count the number of the http modules and set up their indices */
-    /*  获取所有http模块的个数，以便后面分配指定的指针数组空间
-     *
+    /*  
+     *  获取所有http模块的个数，以便后面分配指定的指针数组空间
      */
     ngx_http_max_module = ngx_count_modules(cf->cycle, NGX_HTTP_MODULE);
 
-
-    /* the http main_conf context, it is the same in the all http contexts */
-
-    /*  为所有http模块分配用于存储main级别配置项的指针数组main_conf
-     *
+    /*  
+     *  为所有http模块分配用于存储main级别配置项的指针数组main_conf
      */
-    ctx->main_conf = ngx_pcalloc(cf->pool,
-                                 sizeof(void *) * ngx_http_max_module);
+    ctx->main_conf = ngx_pcalloc(cf->pool, sizeof(void *) * ngx_http_max_module);
     if (ctx->main_conf == NULL) {
         return NGX_CONF_ERROR;
     }
 
-
-    /*
-     * the http null srv_conf context, it is used to merge
-     * the server{}s' srv_conf's
-     */
-
-    /*  为所有http模块分配用于存储server级别配置项的指针数组srv_conf
-     *
+    /*  
+     *  为所有http模块分配用于存储server级别配置项的指针数组srv_conf
      */
     ctx->srv_conf = ngx_pcalloc(cf->pool, sizeof(void *) * ngx_http_max_module);
     if (ctx->srv_conf == NULL) {
         return NGX_CONF_ERROR;
     }
 
-
-    /*
-     * the http null loc_conf context, it is used to merge
-     * the server{}s' loc_conf's
-     */
-
-    /*  为所有http模块分配用于存储location级别配置项的指针数组loc_conf
-     *
+    /*  
+     *  为所有http模块分配用于存储location级别配置项的指针数组loc_conf
      */
     ctx->loc_conf = ngx_pcalloc(cf->pool, sizeof(void *) * ngx_http_max_module);
     if (ctx->loc_conf == NULL) {
         return NGX_CONF_ERROR;
     }
 
-
-    /*
-     * create the main_conf's, the null srv_conf's, and the null loc_conf's
-     * of the all http modules
-     */
-
-    /*  初始化所有普通http模块，调用模块接口中实现的
+    /*  
+     *  初始化所有http模块，调用模块接口中实现的
      *  create_main_conf、create_srv_conf、create_loc_conf为配置项分配存储空间
-     *
      */
     for (m = 0; cf->cycle->modules[m]; m++) {
         if (cf->cycle->modules[m]->type != NGX_HTTP_MODULE) {
             continue;
         }
 
-        /*  获取http模块的接口和http模块在同类模块中的索引值
-         *
+        /*  
+         *  获取http模块的接口和http模块在同类模块中的索引值
          */
         module = cf->cycle->modules[m]->ctx;
         mi = cf->cycle->modules[m]->ctx_index;
@@ -252,6 +231,9 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     pcf = *cf;
     cf->ctx = ctx;
 
+    /*
+     *  分配好所有配置项的结构体之后，回调所有http模块的preconfiguration，然后开始解析http{}中的内容
+     */
     for (m = 0; cf->cycle->modules[m]; m++) {
         if (cf->cycle->modules[m]->type != NGX_HTTP_MODULE) {
             continue;
@@ -266,9 +248,8 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
     }
 
-    /* parse inside the http{} block */
-
-    /*  开始解析http配置块中的所有内容，其中会递归调用server块和location块的解析
+    /*  
+     *  开始解析http配置块中的所有内容，其中会递归调用server块和location块的解析
      *  执行完成后所有http相关配置项已读取完毕，存储到相应位置
      */
     cf->module_type = NGX_HTTP_MODULE;
@@ -279,12 +260,8 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         goto failed;
     }
 
-    /*
-     * init http{} main_conf's, merge the server{}s' srv_conf's
-     * and its location{}s' loc_conf's
-     */
-
-    /*  获取ngx_http_core_module的main配置项结构体指针
+    /*  
+     *  获取ngx_http_core_module的main配置项结构体指针
      *  然后获取到servers数组中的元素，每一个元素都是ngx_http_core_module对于server块分配的serv配置项
      */
     cmcf = ctx->main_conf[ngx_http_core_module.ctx_index];

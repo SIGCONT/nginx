@@ -2866,6 +2866,9 @@ ngx_http_get_forwarded_addr_internal(ngx_http_request_t *r, ngx_addr_t *addr,
 }
 
 
+/*
+ *  在解析main级别配置项时，如果遇到server{}配置块，则回调此方法
+ */
 static char *
 ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 {
@@ -2885,17 +2888,14 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
         return NGX_CONF_ERROR;
     }
 
+    //main_conf指向所属的http块下ngx_http_conf_ctx_t结构体的main_conf指针数组
     http_ctx = cf->ctx;
     ctx->main_conf = http_ctx->main_conf;
-
-    /* the server{}'s srv_conf */
 
     ctx->srv_conf = ngx_pcalloc(cf->pool, sizeof(void *) * ngx_http_max_module);
     if (ctx->srv_conf == NULL) {
         return NGX_CONF_ERROR;
     }
-
-    /* the server{}'s loc_conf */
 
     ctx->loc_conf = ngx_pcalloc(cf->pool, sizeof(void *) * ngx_http_max_module);
     if (ctx->loc_conf == NULL) {
@@ -2937,6 +2937,12 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 
     cmcf = ctx->main_conf[ngx_http_core_module.ctx_index];
 
+    /*
+     *  servers动态数组中的每一个元素都是一个指针,它指向用于表示server块的
+     *  ngx_http_core_srv_conf_t结构体的地址
+     *  ngx_http_core_srv_conf_t结构体中有一个ctx指针，它指向解析server时新生成的
+     *  ngx_http_conf_ctx_t结构体
+     */
     cscfp = ngx_array_push(&cmcf->servers);
     if (cscfp == NULL) {
         return NGX_CONF_ERROR;
@@ -2961,11 +2967,9 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
         sin = &lsopt.sockaddr.sockaddr_in;
 
         sin->sin_family = AF_INET;
-#if (NGX_WIN32)
-        sin->sin_port = htons(80);
-#else
+
         sin->sin_port = htons((getuid() == 0) ? 80 : 8000);
-#endif
+
         sin->sin_addr.s_addr = INADDR_ANY;
 
         lsopt.socklen = sizeof(struct sockaddr_in);
@@ -2993,6 +2997,9 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 }
 
 
+/*
+ *  在解析srv级别配置项时，如果发现了location{}配置块，则回调此方法
+ */
 static char *
 ngx_http_core_location(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 {
@@ -3028,8 +3035,7 @@ ngx_http_core_location(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
         module = cf->cycle->modules[i]->ctx;
 
         if (module->create_loc_conf) {
-            ctx->loc_conf[cf->cycle->modules[i]->ctx_index] =
-                                                   module->create_loc_conf(cf);
+            ctx->loc_conf[cf->cycle->modules[i]->ctx_index] = module->create_loc_conf(cf);
             if (ctx->loc_conf[cf->cycle->modules[i]->ctx_index] == NULL) {
                 return NGX_CONF_ERROR;
             }

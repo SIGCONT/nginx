@@ -107,6 +107,7 @@ typedef struct {
 
 
 typedef enum {
+    //在接收到完整的HTTP头部后处理的HTTP阶段
     NGX_HTTP_POST_READ_PHASE = 0,
 
     NGX_HTTP_SERVER_REWRITE_PHASE,
@@ -121,8 +122,10 @@ typedef enum {
     NGX_HTTP_POST_ACCESS_PHASE,
 
     NGX_HTTP_TRY_FILES_PHASE,
+    //用于处理HTTP请求内容的阶段，这是大部分HTTP模块最喜欢介入的阶段
     NGX_HTTP_CONTENT_PHASE,
 
+    //处理完请求后记录日志的阶段
     NGX_HTTP_LOG_PHASE
 } ngx_http_phases;
 
