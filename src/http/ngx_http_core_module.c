@@ -201,6 +201,7 @@ static ngx_command_t  ngx_http_core_commands[] = {
       offsetof(ngx_http_core_main_conf_t, server_names_hash_bucket_size),
       NULL },
 
+    //在解析main级别配置项时，如果发现server{}配置项，则回调此方法
     { ngx_string("server"),
       NGX_HTTP_MAIN_CONF|NGX_CONF_BLOCK|NGX_CONF_NOARGS,
       ngx_http_core_server,
@@ -264,6 +265,7 @@ static ngx_command_t  ngx_http_core_commands[] = {
       offsetof(ngx_http_core_srv_conf_t, underscores_in_headers),
       NULL },
 
+    //在解析srv级别配置项时，如果发现了location{}配置块，则回调此方法
     { ngx_string("location"),
       NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_BLOCK|NGX_CONF_TAKE12,
       ngx_http_core_location,
@@ -2883,12 +2885,16 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     ngx_http_core_srv_conf_t    *cscf, **cscfp;
     ngx_http_core_main_conf_t   *cmcf;
 
+    //分配属于此server块的ngx_http_conf_ctx_t结构体，三个成员指向三个指针数组
     ctx = ngx_pcalloc(cf->pool, sizeof(ngx_http_conf_ctx_t));
     if (ctx == NULL) {
         return NGX_CONF_ERROR;
     }
 
-    //main_conf指向所属的http块下ngx_http_conf_ctx_t结构体的main_conf指针数组
+    /*
+     *  http_ctx指向http{}块对应的ngx_http_conf_ctx_t结构体
+     *  main_conf指向所属的http块下ngx_http_conf_ctx_t结构体的main_conf指针数组
+     */
     http_ctx = cf->ctx;
     ctx->main_conf = http_ctx->main_conf;
 
@@ -2929,12 +2935,18 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     }
 
 
-    /* the server configuration context */
-
+    /*
+     *  cscf指向http_core为当前server{}块生成的server级别配置项结构体
+     *  ctx成员指向其所属的ngx_http_conf_ctx_t结构体
+     */
     cscf = ctx->srv_conf[ngx_http_core_module.ctx_index];
     cscf->ctx = ctx;
 
 
+    /*
+     *  cmcf指向http_core为http{}块生成的main级别配置项结构体，此结构体唯一
+     *  所有http_core为server{}块生成的server级别配置结构体会保存到其servers动态数组成员中
+     */
     cmcf = ctx->main_conf[ngx_http_core_module.ctx_index];
 
     /*
@@ -2951,8 +2963,10 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     *cscfp = cscf;
 
 
-    /* parse inside server{} */
-
+    /*
+     *  把ctx设为当前的ngx_http_conf_ctx_t结构体，解析完server{}块中的内容后
+     *  再还原成原先的
+     */
     pcf = *cf;
     cf->ctx = ctx;
     cf->cmd_type = NGX_HTTP_SRV_CONF;
@@ -2961,6 +2975,7 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 
     *cf = pcf;
 
+    //如果在server{}块内没有解析到listen配置项
     if (rv == NGX_CONF_OK && !cscf->listen) {
         ngx_memzero(&lsopt, sizeof(ngx_http_listen_opt_t));
 
@@ -2968,6 +2983,7 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 
         sin->sin_family = AF_INET;
 
+        //监听默认端口80，如果没有权限，则监听8000端口
         sin->sin_port = htons((getuid() == 0) ? 80 : 8000);
 
         sin->sin_addr.s_addr = INADDR_ANY;
@@ -3013,11 +3029,17 @@ ngx_http_core_location(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     ngx_http_conf_ctx_t       *ctx, *pctx;
     ngx_http_core_loc_conf_t  *clcf, *pclcf;
 
+    //分配属于此loc块的ngx_http_conf_ctx_t结构体，三个成员指向三个指针数组
     ctx = ngx_pcalloc(cf->pool, sizeof(ngx_http_conf_ctx_t));
     if (ctx == NULL) {
         return NGX_CONF_ERROR;
     }
 
+    /*
+     *  pctx指向当前loc块所属server块的ngx_http_conf_ctx_t结构体
+     *  将当前的main_conf指向父server块的main_conf指针数组
+     *  将当前的srv_conf指向父server块的srv_conf指针数组
+     */
     pctx = cf->ctx;
     ctx->main_conf = pctx->main_conf;
     ctx->srv_conf = pctx->srv_conf;
@@ -3042,6 +3064,10 @@ ngx_http_core_location(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
         }
     }
 
+    /*
+     *  clcf指向http_core模块为当前loc块生成的loc结构体
+     *  其loc_conf指向当前loc块中的loc_conf指针数组
+     */
     clcf = ctx->loc_conf[ngx_http_core_module.ctx_index];
     clcf->loc_conf = ctx->loc_conf;
 
@@ -3053,22 +3079,26 @@ ngx_http_core_location(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
         mod = value[1].data;
         name = &value[2];
 
+        //  = 表示精确匹配,name指向url
         if (len == 1 && mod[0] == '=') {
 
             clcf->name = *name;
             clcf->exact_match = 1;
 
+        //  ^~ 表示左侧严格匹配,name指向url
         } else if (len == 2 && mod[0] == '^' && mod[1] == '~') {
 
             clcf->name = *name;
             clcf->noregex = 1;
 
+        //  ~ 表示区分大小写的正则匹配
         } else if (len == 1 && mod[0] == '~') {
 
             if (ngx_http_core_regex_location(cf, clcf, name, 0) != NGX_OK) {
                 return NGX_CONF_ERROR;
             }
 
+        //  ~* 表示不区分大小写的正则匹配
         } else if (len == 2 && mod[0] == '~' && mod[1] == '*') {
 
             if (ngx_http_core_regex_location(cf, clcf, name, 1) != NGX_OK) {
@@ -3177,6 +3207,10 @@ ngx_http_core_location(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
         }
     }
 
+    /*
+     *  pclcf指向http_core模块为所属server{}生成的loc级别配置项结构体
+     *  其locations为ngx_queue_t双链表
+     */
     if (ngx_http_add_location(cf, &pclcf->locations, clcf) != NGX_OK) {
         return NGX_CONF_ERROR;
     }

@@ -876,8 +876,7 @@ ngx_http_add_location(ngx_conf_t *cf, ngx_queue_t **locations,
     ngx_http_location_queue_t  *lq;
 
     if (*locations == NULL) {
-        *locations = ngx_palloc(cf->temp_pool,
-                                sizeof(ngx_http_location_queue_t));
+        *locations = ngx_palloc(cf->temp_pool, sizeof(ngx_http_location_queue_t));
         if (*locations == NULL) {
             return NGX_ERROR;
         }

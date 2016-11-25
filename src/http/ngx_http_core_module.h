@@ -185,9 +185,13 @@ typedef struct {
     /* array of the ngx_http_server_name_t, "server_name" directive */
     ngx_array_t                 server_names;
 
-    /* server ctx */
+    //指向当前server{}块所属的ngx_http_conf_ctx_t结构体
     ngx_http_conf_ctx_t        *ctx;
 
+    /*
+     *  当前server{}块的虚拟主机，如果存在的话，则会与HTTP请求中的Host头部做匹配
+     *  匹配上后再由当前ngx_http_core_srv_conf_t处理请求
+     */
     ngx_str_t                   server_name;
 
     size_t                      connection_pool_size;
@@ -314,7 +318,9 @@ typedef struct {
 
 
 struct ngx_http_core_loc_conf_s {
-    ngx_str_t     name;          /* location name */
+    
+    //location的名称，即nginx.conf中location后的表达式
+    ngx_str_t     name;          
 
 #if (NGX_PCRE)
     ngx_http_regex_t  *regex;

@@ -25,14 +25,19 @@ typedef struct {
      *  创建的与server相关的结构体
      */
     void        **srv_conf;
+    /*
+     *  指向一个指针数组，数组中的每个成员都是由所有HTTP模块的create_loc_conf方法
+     *  创建的与location相关的结构体
+     */
     void        **loc_conf;
 } ngx_http_conf_ctx_t;
 
 
+//每个HTTP模块必须实现的接口
 typedef struct {
-    //解析配置文件前调用
+    //解析http{}内配置项前调用
     ngx_int_t   (*preconfiguration)(ngx_conf_t *cf);
-    //完成配置文件的解析后调用
+    //解析完http{}内所有配置项后调用
     ngx_int_t   (*postconfiguration)(ngx_conf_t *cf);
 
     /*
