@@ -34,9 +34,12 @@ struct ngx_shm_zone_s {
     ngx_uint_t                noreuse;  /* unsigned  noreuse:1; */
 };
 
-
+/*
+ *  每个进程都拥有唯一一个ngx_cycle_s结构体
+ */
 struct ngx_cycle_s {
     void                  ****conf_ctx;
+    //内存池
     ngx_pool_t               *pool;
 
     ngx_log_t                *log;
@@ -62,7 +65,7 @@ struct ngx_cycle_s {
     ngx_queue_t               reusable_connections_queue;
 
     /*
-     *  服务器监听的端口数组
+     *  服务器监听的端口数组，每个数组元素都是ngx_listening_t结构体
      */
     ngx_array_t               listening;
     //动态数组容器，保存Nginx所有要操作的目录

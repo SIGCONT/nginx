@@ -158,7 +158,6 @@ static ngx_str_t      epoll_name = ngx_string("epoll");
 
 static ngx_command_t  ngx_epoll_commands[] = {
 
-
     /*  
      *  epoll_wait()时最多可以返回的事件数，也即第三个参数
      *  也会预分配同样数量的epoll_event数组用于存储事件
@@ -733,12 +732,9 @@ ngx_epoll_add_connection(ngx_connection_t *c)
     ee.events = EPOLLIN|EPOLLOUT|EPOLLET|EPOLLRDHUP;
     ee.data.ptr = (void *) ((uintptr_t) c | c->read->instance);
 
-    ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                   "epoll add connection: fd:%d ev:%08XD", c->fd, ee.events);
 
     if (epoll_ctl(ep, EPOLL_CTL_ADD, c->fd, &ee) == -1) {
-        ngx_log_error(NGX_LOG_ALERT, c->log, ngx_errno,
-                      "epoll_ctl(EPOLL_CTL_ADD, %d) failed", c->fd);
+
         return NGX_ERROR;
     }
 
@@ -767,16 +763,13 @@ ngx_epoll_del_connection(ngx_connection_t *c, ngx_uint_t flags)
         return NGX_OK;
     }
 
-    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                   "epoll del connection: fd:%d", c->fd);
 
     op = EPOLL_CTL_DEL;
     ee.events = 0;
     ee.data.ptr = NULL;
 
     if (epoll_ctl(ep, op, c->fd, &ee) == -1) {
-        ngx_log_error(NGX_LOG_ALERT, c->log, ngx_errno,
-                      "epoll_ctl(%d, %d) failed", op, c->fd);
+
         return NGX_ERROR;
     }
 
@@ -824,7 +817,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
     ngx_connection_t  *c;
 
     /*
-     *  调用epoll_wait获取事件
+     *  调用epoll_wait获取事件，timer单位为毫秒，如果为0，则方法立即返回，不会等待
      */
     events = epoll_wait(ep, event_list, (int) nevents, timer);
 
@@ -878,16 +871,10 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
          */
         if (c->fd == -1 || rev->instance != instance) {
 
-            ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
-                           "epoll: stale event %p", c);
             continue;
         }
 
         revents = event_list[i].events;
-
-        ngx_log_debug3(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
-                       "epoll: fd:%d ev:%04XD d:%p",
-                       c->fd, revents, event_list[i].data.ptr);
 
         if (revents & (EPOLLERR|EPOLLHUP)) {
             ngx_log_debug2(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
@@ -895,13 +882,6 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
                            c->fd, revents);
         }
 
-#if 0
-        if (revents & ~(EPOLLIN|EPOLLOUT|EPOLLERR|EPOLLHUP)) {
-            ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
-                          "strange epoll_wait() events fd:%d ev:%04XD",
-                          c->fd, revents);
-        }
-#endif
 
         if ((revents & (EPOLLERR|EPOLLHUP))
              && (revents & (EPOLLIN|EPOLLOUT)) == 0)

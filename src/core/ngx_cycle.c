@@ -297,6 +297,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     /*  
      *  调用所有核心模块的init_conf方法
+     *  以便所有核心模块在结息完配置项后可以做综合性处理
      */
     for (i = 0; cycle->modules[i]; i++) {
         if (cycle->modules[i]->type != NGX_CORE_MODULE) {
@@ -647,7 +648,6 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
      *  调用所有模块的init_modules方法
      */
     if (ngx_init_modules(cycle) != NGX_OK) {
-        /* fatal */
         exit(1);
     }
 

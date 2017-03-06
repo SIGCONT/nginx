@@ -43,7 +43,6 @@ ngx_process_t    ngx_processes[NGX_MAX_PROCESSES];
 /*  
  *  全局signals数组，定义了程序需要处理的所有信号值，对应的命令参数以及相应的信号处理函数
  *  注册之后会继承给工作进程
- *
  */
 ngx_signal_t  signals[] = {
     { ngx_signal_value(NGX_RECONFIGURE_SIGNAL),
@@ -316,7 +315,9 @@ ngx_execute_proc(ngx_cycle_t *cycle, void *data)
     exit(1);
 }
 
-
+/*
+ *  循环signals数组，为主进程注册所有的信号处理函数
+ */
 ngx_int_t
 ngx_init_signals(ngx_log_t *log)
 {
@@ -328,14 +329,10 @@ ngx_init_signals(ngx_log_t *log)
         sa.sa_handler = sig->handler;
         sigemptyset(&sa.sa_mask);
         if (sigaction(sig->signo, &sa, NULL) == -1) {
-#if (NGX_VALGRIND)
-            ngx_log_error(NGX_LOG_ALERT, log, ngx_errno,
-                          "sigaction(%s) failed, ignored", sig->signame);
-#else
+
             ngx_log_error(NGX_LOG_EMERG, log, ngx_errno,
                           "sigaction(%s) failed", sig->signame);
             return NGX_ERROR;
-#endif
         }
     }
 

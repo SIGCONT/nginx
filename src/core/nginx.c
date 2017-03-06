@@ -398,6 +398,7 @@ main(int argc, char *const *argv)
      *  检测Nginx运行方式
      */
     if (ngx_process == NGX_PROCESS_SINGLE) {
+        //单进程工作模式
         ngx_single_process_cycle(cycle);
 
     } else {

@@ -16,17 +16,17 @@
 typedef struct ngx_listening_s  ngx_listening_t;
 
 /*
- *  代表服务器监听的端口
+ *  代表服务器监听的一个端口
  */
 struct ngx_listening_s {
-    //socket套接字句柄
+    //socket套接字
     ngx_socket_t        fd;
 
     struct sockaddr    *sockaddr;
     socklen_t           socklen;    /* size of sockaddr */
     size_t              addr_text_max_len;
     ngx_str_t           addr_text;
-
+    //套接字数据传输类型
     int                 type;
 
     //TCP实现监听时的backlog队列，表示三次握手成功后还未被取出的连接最大个数
@@ -42,10 +42,10 @@ struct ngx_listening_s {
     int                 keepcnt;
 #endif
 
-    /* handler of accepted connection */
+    //当新的TCP连接成功建立后的处理方法
     ngx_connection_handler_pt   handler;
 
-    void               *servers;  /* array of ngx_http_in_addr_t, for example */
+    void               *servers;
 
     ngx_log_t           log;
     ngx_log_t          *logp;
@@ -56,6 +56,7 @@ struct ngx_listening_s {
     /* should be here because of the deferred accept */
     ngx_msec_t          post_accept_timeout;
 
+    //单链表指针
     ngx_listening_t    *previous;
     ngx_connection_t   *connection;
 
@@ -128,7 +129,6 @@ typedef enum {
 #define NGX_LOWLEVEL_BUFFERED  0x0f
 #define NGX_SSL_BUFFERED       0x01
 #define NGX_HTTP_V2_BUFFERED   0x02
-
 
 struct ngx_connection_s {
 

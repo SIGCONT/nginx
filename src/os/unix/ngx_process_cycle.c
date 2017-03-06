@@ -32,21 +32,28 @@ ngx_uint_t    ngx_process;
 ngx_uint_t    ngx_worker;
 ngx_pid_t     ngx_pid;
 
+//子进程意外结束时监控所有子进程
 sig_atomic_t  ngx_reap;
 sig_atomic_t  ngx_sigio;
 sig_atomic_t  ngx_sigalrm;
+//强制关闭整个服务
 sig_atomic_t  ngx_terminate;
+//优雅地关闭整个服务
 sig_atomic_t  ngx_quit;
 sig_atomic_t  ngx_debug_quit;
 ngx_uint_t    ngx_exiting;
+//重读配置文件并使服务对新配置项生效
 sig_atomic_t  ngx_reconfigure;
+//重新打开服务中的所有文件
 sig_atomic_t  ngx_reopen;
 
+//平滑升级到新版本
 sig_atomic_t  ngx_change_binary;
 ngx_pid_t     ngx_new_binary;
 ngx_uint_t    ngx_inherited;
 ngx_uint_t    ngx_daemonized;
 
+//所有子进程不再接受处理新的连接
 sig_atomic_t  ngx_noaccept;
 ngx_uint_t    ngx_noaccepting;
 ngx_uint_t    ngx_restart;
@@ -120,7 +127,6 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
 
     title = ngx_pnalloc(cycle->pool, size);
     if (title == NULL) {
-        /* fatal */
         exit(2);
     }
 
@@ -777,6 +783,7 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
     ngx_worker = worker;
 
     /*
+     *  每个worker进程在运行之初
      *  调用所有模块的init_process方法
      */
     ngx_worker_process_init(cycle, worker);

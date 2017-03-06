@@ -1,7 +1,7 @@
 
 /*
- * Copyright (C) Igor Sysoev
- * Copyright (C) Nginx, Inc.
+ *  条件编译指令 #if #endif
+ *  #if后接常量表达式 或者 标识符，表达式值为0或者标识符未定义过，则块中内容不编译
  */
 
 
