@@ -62,7 +62,7 @@ typedef struct {
 #define NGX_PROCESS_JUST_RESPAWN  -4
 #define NGX_PROCESS_DETACHED      -5
 
-
+//pid_t getpid(void)，存在于unistd.h中，返回当前进程id
 #define ngx_getpid   getpid
 
 #ifndef ngx_log_pid

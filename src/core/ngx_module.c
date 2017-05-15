@@ -17,14 +17,14 @@ static ngx_uint_t ngx_module_index(ngx_cycle_t *cycle);
 static ngx_uint_t ngx_module_ctx_index(ngx_cycle_t *cycle, ngx_uint_t type,
     ngx_uint_t index);
 
-
+//全局变量，nginx模块数的上限
 ngx_uint_t         ngx_max_module;
 static ngx_uint_t  ngx_modules_n;
 
 
 /*  
  *  循环ngx_modules数组，初始化所有模块的index和name
- *  ngx_modules_n为模块的总个数
+ *  ngx_modules_n为模块的总数
  */
 ngx_int_t
 ngx_preinit_modules(void)

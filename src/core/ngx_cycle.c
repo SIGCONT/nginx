@@ -971,6 +971,7 @@ ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log)
     ngx_file_t  file;
     u_char      pid[NGX_INT64_LEN + 2];
 
+    //只有当前进程为NGX_PROCESS_SINGLE或NGX_PROCESS_MASTER时，才保存此进程的id文件
     if (ngx_process > NGX_PROCESS_MASTER) {
         return NGX_OK;
     }
@@ -986,8 +987,7 @@ ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log)
                             create, NGX_FILE_DEFAULT_ACCESS);
 
     if (file.fd == NGX_INVALID_FILE) {
-        ngx_log_error(NGX_LOG_EMERG, log, ngx_errno,
-                      ngx_open_file_n " \"%s\" failed", file.name.data);
+
         return NGX_ERROR;
     }
 
@@ -1037,8 +1037,6 @@ ngx_signal_process(ngx_cycle_t *cycle, char *sig)
     ngx_file_t        file;
     ngx_core_conf_t  *ccf;
     u_char            buf[NGX_INT64_LEN + 2];
-
-    ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "signal process started");
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 

@@ -175,8 +175,10 @@ static ngx_uint_t   ngx_show_help;
 static ngx_uint_t   ngx_show_version;
 static ngx_uint_t   ngx_show_configure;
 static u_char      *ngx_prefix;
+//全局变量，读取命令行参数时-c后的部分保存其中
 static u_char      *ngx_conf_file;
 static u_char      *ngx_conf_params;
+//全局变量，读取命令行参数时-s后的部分保存其中
 static char        *ngx_signal;
 
 
@@ -200,7 +202,8 @@ main(int argc, char *const *argv)
     }
 
     /*  
-     *  读取命令行参数，设置对应的全局变量ngx_signal和ngx_process及标识位
+     *  读取命令行参数，设置对应的全局变量ngx_signal、ngx_process、ngx_conf_file、ngx_conf_params、ngx_prefix
+     *  还有各个标识位
      *  如信号命令
      */
     if (ngx_get_options(argc, argv) != NGX_OK) {
@@ -260,7 +263,7 @@ main(int argc, char *const *argv)
 
 
     /*  
-     *  设置配置文件路径
+     *  根据全局变量中保存的配置文件相关路径处理配置项
      */
     if (ngx_process_options(&init_cycle) != NGX_OK) {
         return 1;
@@ -288,7 +291,7 @@ main(int argc, char *const *argv)
 
     /*  
      *  循环ngx_modules数组，初始化所有模块的index和name
-     *  全局变量ngx_modules_n为模块的个数
+     *  全局变量ngx_modules_n为模块的总数，不执行回调方法
      */
     if (ngx_preinit_modules() != NGX_OK) {
         return 1;
@@ -376,6 +379,7 @@ main(int argc, char *const *argv)
         ngx_daemonized = 1;
     }
 
+    //生产进程id文件
     if (ngx_create_pidfile(&ccf->pid, cycle->log) != NGX_OK) {
         return 1;
     }
@@ -736,6 +740,7 @@ ngx_exec_new_binary(ngx_cycle_t *cycle, char *const *argv)
 static ngx_int_t
 ngx_get_options(int argc, char *const *argv)
 {
+    //u_char  typedef unsigned char u_char，存在于sys/types.h，占用一个字节
     u_char     *p;
     ngx_int_t   i;
 
@@ -745,6 +750,7 @@ ngx_get_options(int argc, char *const *argv)
 
         p = (u_char *) argv[i];
 
+        //C运算符优先级中先++，后*，命令行参数必须以-开头
         if (*p++ != '-') {
             ngx_log_stderr(0, "invalid option: \"%s\"", argv[i]);
             return NGX_ERROR;
@@ -796,6 +802,7 @@ ngx_get_options(int argc, char *const *argv)
                 ngx_log_stderr(0, "option \"-p\" requires directory name");
                 return NGX_ERROR;
 
+            //同时制定nginx配置文件地址
             case 'c':
                 if (*p) {
                     ngx_conf_file = p;
@@ -849,7 +856,7 @@ ngx_get_options(int argc, char *const *argv)
                     || ngx_strcmp(ngx_signal, "reopen") == 0
                     || ngx_strcmp(ngx_signal, "reload") == 0)
                 {
-                    //当前进程仅用于发送信号
+                    //当前进程是信号员，仅用于发送信号
                     ngx_process = NGX_PROCESS_SIGNALLER;
                     goto next;
                 }
@@ -965,6 +972,7 @@ ngx_process_options(ngx_cycle_t *cycle)
 #endif
     }
 
+    //如果命令行中指定了配置文件路径
     if (ngx_conf_file) {
         cycle->conf_file.len = ngx_strlen(ngx_conf_file);
         cycle->conf_file.data = ngx_conf_file;

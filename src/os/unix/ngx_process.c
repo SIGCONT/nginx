@@ -330,8 +330,6 @@ ngx_init_signals(ngx_log_t *log)
         sigemptyset(&sa.sa_mask);
         if (sigaction(sig->signo, &sa, NULL) == -1) {
 
-            ngx_log_error(NGX_LOG_EMERG, log, ngx_errno,
-                          "sigaction(%s) failed", sig->signame);
             return NGX_ERROR;
         }
     }

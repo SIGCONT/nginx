@@ -27,7 +27,7 @@ static ngx_thread_value_t __stdcall ngx_cache_manager_thread(void *data);
 static void ngx_cache_manager_process_handler(void);
 static ngx_thread_value_t __stdcall ngx_cache_loader_thread(void *data);
 
-
+//全局变量，根据命令行参数判断当前进程的作用，保存其中
 ngx_uint_t     ngx_process;
 ngx_uint_t     ngx_worker;
 ngx_pid_t      ngx_pid;
