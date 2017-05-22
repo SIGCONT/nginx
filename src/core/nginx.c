@@ -197,14 +197,15 @@ main(int argc, char *const *argv)
 
     ngx_debug_init();
 
+    /*
+     *  初始化全局变量ngx_sys_errlist，系统error字符串的数组
+     */
     if (ngx_strerror_init() != NGX_OK) {
         return 1;
     }
 
     /*  
-     *  读取命令行参数，设置对应的全局变量ngx_signal、ngx_process、ngx_conf_file、ngx_conf_params、ngx_prefix
-     *  还有各个标识位
-     *  如信号命令
+     *  解析命令行，处理各种参数
      */
     if (ngx_get_options(argc, argv) != NGX_OK) {
         return 1;
@@ -282,7 +283,8 @@ main(int argc, char *const *argv)
     }
 
     /*
-     *  如果处于升级中，则监听环境变量里传递的监听句柄
+     *  如果处于平滑升级中，老的Nginx进程会通过环境变量"NGINX"来传递需要打开的监听端口
+     *  新的Nginx进程会通过此方法来使用已经打开的TCP监听端口
      */
     if (ngx_add_inherited_sockets(&init_cycle) != NGX_OK) {
         return 1;
@@ -300,7 +302,12 @@ main(int argc, char *const *argv)
 
     /*  
      *  初始化全局的ngx_cycle_t结构体
-     *  读取配置文件，为所有的核心模块分配配置项地址，解析配置项，合并配置项
+     *  1、调用所有核心模块的create_conf方法，生成存放配置项的结构体
+     *  2、针对所有的核心模块解析nginx.conf配置文件
+     *  3、调用所有核心模块的init_conf方法
+     *  4、创建目录、打开文件、初始化共享内存等进程间通信方式
+     *  5、打开由个Nginx模块从配置文件中读取到的监听端口
+     *  6、调用所有模块的init_module方法
      */
     cycle = ngx_init_cycle(&init_cycle);
     if (cycle == NULL) {
@@ -735,7 +742,13 @@ ngx_exec_new_binary(ngx_cycle_t *cycle, char *const *argv)
 
 
 /*  
- *  读取命令行参数，设置全局标识位ngx_signal和ngx_process
+ *  解析命令行，处理各种参数
+ *  操作的全局变量:
+ *  标志位：ngx_show_version、ngx_show_help、ngx_show_configure、ngx_quiet_mode
+ *  ngx_conf_file 配置文件路径字符串
+ *  ngx_prefix 配置文件所在文件夹路径
+ *  ngx_conf_params 配置参数字符串
+ *  ngx_signal 信号字符串
  */
 static ngx_int_t
 ngx_get_options(int argc, char *const *argv)
@@ -802,7 +815,7 @@ ngx_get_options(int argc, char *const *argv)
                 ngx_log_stderr(0, "option \"-p\" requires directory name");
                 return NGX_ERROR;
 
-            //同时制定nginx配置文件地址
+            //同时指定nginx配置文件地址
             case 'c':
                 if (*p) {
                     ngx_conf_file = p;

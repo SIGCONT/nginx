@@ -31,12 +31,13 @@ char           **ngx_argv;
 char           **ngx_os_argv;
 
 
-/*  
- *  ngx_processes全局数组
- */
+
 ngx_int_t        ngx_process_slot;
 ngx_socket_t     ngx_channel;
 ngx_int_t        ngx_last_process;
+/*  
+ *  ngx_processes全局数组，此数组近给master进程使用
+ */
 ngx_process_t    ngx_processes[NGX_MAX_PROCESSES];
 
 
@@ -95,10 +96,15 @@ ngx_signal_t  signals[] = {
     { 0, NULL, "", NULL }
 };
 
-
+/*
+ *  修改了全局变量ngx_processes、ngx_process_slot、ngx_last_process
+ */
 ngx_pid_t
-ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
-    char *name, ngx_int_t respawn)
+ngx_spawn_process(ngx_cycle_t *cycle, 
+                  ngx_spawn_proc_pt proc, 
+                  void *data,
+                  char *name, 
+                  ngx_int_t respawn)
 {
     u_long     on;
     ngx_pid_t  pid;
@@ -236,9 +242,8 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
     ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "start %s %P", name, pid);
 
 
-    /*  将新创建的worker进程相关信息保存到ngx_processes数组中的对应位置
-     *
-     *
+    /*  
+     *  将新创建的worker进程相关信息保存到ngx_processes数组中的对应位置
      */
     ngx_processes[s].pid = pid;
     ngx_processes[s].exited = 0;
