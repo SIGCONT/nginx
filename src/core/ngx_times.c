@@ -86,7 +86,7 @@ ngx_time_init(void)
 
 
 /*
- *  使用gettimeofday调用以系统时间更新缓存的时间，更新全局时间变量
+ *  使用gettimeofday调用以系统时间更新缓存的时间，更新6个全局时间变量
  */
 void
 ngx_time_update(void)

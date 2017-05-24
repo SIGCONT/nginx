@@ -126,7 +126,7 @@ static ngx_str_t  event_core_name = ngx_string("event_core");
 static ngx_command_t  ngx_event_core_commands[] = {
 
 
-    //连接池的大小，每个worker子进程中支持的TCP最大连接数
+    //连接池的大小，每个worker进程中支持的TCP最大连接数
     { ngx_string("worker_connections"),
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_event_connections,
@@ -221,6 +221,11 @@ ngx_module_t  ngx_event_core_module = {
 
 /*  
  *  worker进程处理网络事件和定时器事件
+ *  操作的全局变量：
+ *  ngx_timer_resolution 时间精度
+ *  ngx_use_accept_mutex 是否启用负载均衡锁
+ *  ngx_accept_disabled 连接总数的1/8 - 剩余的空闲连接数（值大于0说明当前进程抢到的事件过多）
+ *  ngx_current_msec 当前时间，特定情况下更新
  */
 void
 ngx_process_events_and_timers(ngx_cycle_t *cycle)
@@ -621,6 +626,13 @@ ngx_timer_signal_handler(int signo)
  *  在fork()出子进程之后，每个worker子进程在工作循环之前调用
  *  分配连接池、事件池，根据配置选择事件驱动模块并初始化
  *  将驱动方法挂载到全局驱动接口
+ *  操作的全局变量：
+ *  ngx_use_accept_mutex 标志是否启用负载均衡锁
+ *  ngx_accept_mutex_held 当前是否持有均衡锁
+ *  ngx_accept_mutex_delay 最大延迟时间
+ *  ngx_posted_accept_events accept事件队列
+ *  ngx_posted_events 普通事件队列
+ *  ngx_timer_resolution 时间精度
  */
 static ngx_int_t
 ngx_event_process_init(ngx_cycle_t *cycle)
@@ -677,6 +689,8 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
         module = cycle->modules[m]->ctx;
 
+        //调用对应事件驱动模块的init方法
+        //初始化epoll描述符，存储事件的空间，初始化全局操作epoll事件的接口
         if (module->actions.init(cycle, ngx_timer_resolution) != NGX_OK) {
             exit(2);
         }
@@ -964,6 +978,8 @@ ngx_send_lowat(ngx_connection_t *c, size_t lowat)
  *  负责管理所有的event模块
  *  包括所有event模块 序号的初始化，配置项结构体指针数组空间的分配
  *  调用所有event模块的配置项创建，配置项解析和最后的初始化
+ *  操作的全局变量：
+ *  ngx_event_max_module 事件驱动模块的总个数
  */
 static char *
 ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)

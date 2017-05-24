@@ -184,21 +184,34 @@ struct ngx_event_aio_s {
 
 
 typedef struct {
+
+    //添加事件方法，它负责把1个感兴趣的事件添加到操作系统提供的事件驱动机制中，
+    //在事件发生后，可以在调用下面的process_events时获取到这个事件
     ngx_int_t  (*add)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
+    //删除事件方法，它将把1个已经存在于事件驱动机制中的事件移除，
+    //以后即使这个事件发生，也无法在调用process_events时获取到这个事件
     ngx_int_t  (*del)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
 
     ngx_int_t  (*enable)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
     ngx_int_t  (*disable)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
 
+
+    //向事件驱动机制添加一个新的连接，这意味着连接上的读写事件都添加到事件驱动机制中了
     ngx_int_t  (*add_conn)(ngx_connection_t *c);
+    //从事件驱动机制中移除一个连接的读写事件
     ngx_int_t  (*del_conn)(ngx_connection_t *c, ngx_uint_t flags);
 
     ngx_int_t  (*notify)(ngx_event_handler_pt handler);
 
+
+    //在正常的工作循环中，将通过调用此方法来处理事件
     ngx_int_t  (*process_events)(ngx_cycle_t *cycle, ngx_msec_t timer,
                                  ngx_uint_t flags);
 
+
+    //初始化事件驱动模块的方法
     ngx_int_t  (*init)(ngx_cycle_t *cycle, ngx_msec_t timer);
+    //退出事件驱动模块前调用的方法
     void       (*done)(ngx_cycle_t *cycle);
 } ngx_event_actions_t;
 
@@ -472,12 +485,20 @@ typedef struct {
 } ngx_event_conf_t;
 
 
+/*
+ *  事件类模块的通用接口
+ */
 typedef struct {
+    //事件模块的名称
     ngx_str_t              *name;
 
+    //在解析配置项前，这个回调方法用于创建存储配置项参数的结构体
     void                 *(*create_conf)(ngx_cycle_t *cycle);
+
+    //在解析配置项完成后，这个方法会被调用，用以综合处理当前事件模块感兴趣的全部配置项
     char                 *(*init_conf)(ngx_cycle_t *cycle, void *conf);
 
+    //对于事件驱动机制，每个事件模块需要实现的10个抽象方法
     ngx_event_actions_t     actions;
 } ngx_event_module_t;
 

@@ -228,9 +228,7 @@ main(int argc, char *const *argv)
 
     ngx_time_init();
 
-#if (NGX_PCRE)
     ngx_regex_init();
-#endif
 
     ngx_pid = ngx_getpid();
 

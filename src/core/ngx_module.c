@@ -25,6 +25,10 @@ static ngx_uint_t  ngx_modules_n;
 /*  
  *  循环ngx_modules数组，初始化所有模块的index和name
  *  ngx_modules_n为模块的总数
+ *  操作的全局变量：
+ *  ngx_modules 存储所有模块的数组
+ *  ngx_modules_n 模块的总数
+ *  ngx_max_module 模块数量的上限
  */
 ngx_int_t
 ngx_preinit_modules(void)
@@ -84,9 +88,10 @@ ngx_init_modules(ngx_cycle_t *cycle)
 }
 
 
-/*  初始化对应子模块的ctx_index，并返回事件类模块的总个数
- *
- *
+/*  
+ *  初始化对应子模块的ctx_index，并返回事件类模块的总个数
+ *  操作的全局变量：
+ *  modules 所有模块的指针数组
  */
 ngx_int_t
 ngx_count_modules(ngx_cycle_t *cycle, ngx_uint_t type)

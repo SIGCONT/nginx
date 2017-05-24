@@ -325,11 +325,12 @@ failed:
 
 
 /*  
- *  创建epoll对象
- *  创建event_list数组，用于接收发生的事件
- *  ep: epoll文件描述符
- *  event_list:存储发生事件的epoll_event数组
- *  nevents:可返回的最大事件数
+ *  操作的全局变量：
+ *  ep epoll文件描述符
+ *  nevents epoll可返回的最大事件数
+ *  event_list 存储发生事件的epoll_event数组
+ *  ngx_event_actions 供全局操作事件的接口
+ *  ngx_event_flags 默认使用的epoll模式（ET边缘触发）
  */
 static ngx_int_t
 ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
@@ -803,6 +804,9 @@ ngx_epoll_notify(ngx_event_handler_pt handler)
 
 /*
  *  对应于worker进程事件处理中的ngx_process_events方法
+ *  操作的全局变量：
+ *  ngx_posted_accept_events 延迟操作的accept事件队列
+ *  ngx_posted_events 延迟操作的普通读写事件
  */
 static ngx_int_t
 ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
@@ -824,6 +828,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
     err = (events == -1) ? ngx_errno : 0;
 
     if (flags & NGX_UPDATE_TIME || ngx_event_timer_alarm) {
+        //使用gettimeofday调用以系统时间更新6个全局时间变量
         ngx_time_update();
     }
 

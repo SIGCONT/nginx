@@ -20,7 +20,9 @@ static void ngx_debug_accepted_connection(ngx_event_conf_t *ecf,
 
 
 /*
- *  处理新连接事件的回调函数
+ *  处理新连接事件的回调方法
+ *  操作的全局变量：
+ *  
  */
 void
 ngx_event_accept(ngx_event_t *ev)
@@ -625,14 +627,19 @@ ngx_event_recvmsg(ngx_event_t *ev)
 
 #endif
 
-
+/*
+ *  解决多个worker进程监听同一个端口的“惊群”问题
+ *  操作的全局变量：
+ *  ngx_accept_mutex 进程锁
+ *  ngx_accept_mutex_held 当前进程是否持有锁
+ */
 ngx_int_t
 ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
 {
 
     /*
      *  进程间的同步锁，非阻塞获取ngx_accept_mutex锁，成功则返回1，
-     *  失败则返回0说明锁被其他worker子进程占用
+     *  失败则返回0说明锁被其他worker进程占用
      */
     if (ngx_shmtx_trylock(&ngx_accept_mutex)) {
 
